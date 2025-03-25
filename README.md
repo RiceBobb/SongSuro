@@ -18,4 +18,6 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex" 
 ```
 
+### 2. Configure uv environment
 
+In Pycharm, you can set a local interpreter using uv (need to update Pycharm to the latest version)
