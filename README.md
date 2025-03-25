@@ -29,3 +29,10 @@ Install pre-commit to use ruff as linter and reformat.
 ```
 pre-commit install
 ```
+
+## Test
+We use pytest for testing.
+
+```bash
+python3 -m pytest -n auto tests/
+```
