@@ -11,6 +11,8 @@ from songsuro.preprocess import (
 	make_mel_spectrogram,
 	extract_f0_from_file,
 	synthesize_audio_from_f0,
+	hz_to_mel,
+	quantize_mel_scale,
 )
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
@@ -158,3 +160,15 @@ class TestAudioProcessing:
 		assert save_path.exists()
 		saved_audio, _ = sf.read(str(save_path))
 		assert np.allclose(saved_audio, np.zeros_like(saved_audio))
+
+	def test_quantized_f0(self, sample_audio_file):
+		# Extract F0 from the sample file
+		pitch_values, fs = extract_f0_from_file(sample_audio_file)
+
+		mel_pitch_values = hz_to_mel(pitch_values)
+
+		quantized_f0 = quantize_mel_scale(mel_pitch_values)
+
+		assert isinstance(quantized_f0, np.ndarray)
+		assert quantized_f0.ndim == 1
+		assert quantized_f0.shape[0] == pitch_values.shape[0]

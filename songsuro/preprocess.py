@@ -69,3 +69,18 @@ def synthesize_audio_from_f0(pitch_values, fs: int, save_path: str = None):
 		sf.write(save_path, synthesized, fs)
 
 	return synthesized
+
+
+def quantize_mel_scale(mel_pitch_values, levels=127, min_val=133, max_val=571):
+	clipped_values = np.clip(mel_pitch_values, min_val, max_val)
+	quantized_values = np.round(
+		(clipped_values - min_val) / (max_val - min_val) * (levels - 1)
+	)
+	return quantized_values.astype(int)
+
+
+def hz_to_mel(frequency):
+	return 2595 * np.log10(1 + frequency / 700)
+
+
+# Preprocess F0 : extract F0 => hz_to_mel => quantize_mel_scale => hz to frame (최빈값 필터) => one-hot encoding (0~127)
