@@ -3,8 +3,15 @@ import pathlib
 
 import pytest
 import numpy as np
+import soundfile as sf
 
-from songsuro.preprocess import load_audio, make_spectrogram, make_mel_spectrogram
+from songsuro.preprocess import (
+	load_audio,
+	make_spectrogram,
+	make_mel_spectrogram,
+	extract_f0_from_file,
+	synthesize_audio_from_f0,
+)
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
 resource_dir = os.path.join(root_dir, "resources")
@@ -87,3 +94,67 @@ class TestAudioProcessing:
 		# Check mel spectrogram dimensions with custom parameters
 		assert mel_spec.shape[0] == n_bins
 		assert mel_spec.shape[1] == power_spec.shape[1]
+
+	def test_extract_f0_from_file(self, sample_audio_file):
+		# Test if the function runs without errors
+		pitch_values, fs = extract_f0_from_file(sample_audio_file)
+
+		# Check if pitch_values and fs are not None
+		assert pitch_values is not None
+		assert fs is not None
+
+		# Check if pitch_values is a numpy array
+		assert isinstance(pitch_values, np.ndarray)
+
+		# Check if fs is an integer
+		assert isinstance(fs, int)
+
+		# Check if pitch_values has the same length as the audio file
+		audio_length = len(sf.read(sample_audio_file)[0])
+		assert len(pitch_values) == audio_length
+
+	def test_synthesize_audio_from_f0(self, sample_audio_file, tmp_path):
+		# Extract F0 from the sample file
+		pitch_values, fs = extract_f0_from_file(sample_audio_file)
+
+		# Test synthesize_audio_from_f0 without saving
+		synthesized = synthesize_audio_from_f0(pitch_values, fs)
+
+		# Check if synthesized is a numpy array
+		assert isinstance(synthesized, np.ndarray)
+
+		# Check if synthesized has the same length as pitch_values
+		assert len(synthesized) == len(pitch_values)
+
+		# Test synthesize_audio_from_f0 with saving
+		save_path = tmp_path / "synthesized_audio.wav"
+		_ = synthesize_audio_from_f0(pitch_values, fs, str(save_path))
+
+		# Check if the file was created
+		assert save_path.exists()
+
+		# Check if the saved file has the correct sample rate and length
+		saved_audio, saved_fs = sf.read(str(save_path))
+		assert saved_fs == fs
+		assert len(saved_audio) == len(pitch_values)
+
+	def test_extract_f0_from_file_not_found(self):
+		# Test if FileNotFoundError is raised for non-existent file
+		with pytest.raises(FileNotFoundError):
+			extract_f0_from_file("non_existent_file.wav")
+
+	def test_synthesize_audio_from_f0_zero_pitch(self, tmp_path):
+		# Test synthesize_audio_from_f0 with zero pitch values
+		pitch_values = np.zeros(1000)
+		fs = 44100
+		save_path = tmp_path / "zero_pitch_audio.wav"
+
+		synthesized = synthesize_audio_from_f0(pitch_values, fs, str(save_path))
+
+		# Check if synthesized audio is all zeros
+		assert np.allclose(synthesized, np.zeros_like(synthesized))
+
+		# Check if the file was created and contains all zeros
+		assert save_path.exists()
+		saved_audio, _ = sf.read(str(save_path))
+		assert np.allclose(saved_audio, np.zeros_like(saved_audio))

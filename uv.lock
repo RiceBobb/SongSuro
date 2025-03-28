@@ -7,6 +7,16 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "amfm-decompy"
+version = "1.0.11"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e7/ea/9364ece82c511c85131e24012dcf37d2aca876db7ea18799e8969fc5e8b6/AMFM_decompy-1.0.11.tar.gz", hash = "sha256:301e36359fbf28670b332cc4ec2c27301c74f3ce22a80431d89df2516cd07808", size = 751460 }
+
+[[package]]
 name = "audioop-lts"
 version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -828,6 +838,7 @@ wheels = [
 name = "songsuro"
 source = { editable = "." }
 dependencies = [
+    { name = "amfm-decompy" },
     { name = "librosa" },
     { name = "numpy" },
     { name = "pre-commit" },
@@ -844,6 +855,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "amfm-decompy", specifier = ">=1.0.11" },
     { name = "librosa", specifier = ">=0.11.0" },
     { name = "numpy", specifier = ">=2.1.3" },
     { name = "pre-commit", specifier = ">=4.2.0" },
