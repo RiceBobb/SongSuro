@@ -13,6 +13,7 @@ from songsuro.preprocess import (
 	synthesize_audio_from_f0,
 	hz_to_mel,
 	quantize_mel_scale,
+	mode_window_filter,
 )
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
@@ -172,3 +173,20 @@ class TestAudioProcessing:
 		assert isinstance(quantized_f0, np.ndarray)
 		assert quantized_f0.ndim == 1
 		assert quantized_f0.shape[0] == pitch_values.shape[0]
+
+	def test_mode_window_filter(self, sample_audio_file):
+		pitch_values, fs = extract_f0_from_file(sample_audio_file)
+
+		mel_pitch_values = hz_to_mel(pitch_values)
+
+		quantized_f0 = quantize_mel_scale(mel_pitch_values)
+
+		frame_duration_ms = 20
+		indices_per_frame = int((frame_duration_ms / 1000) * fs)
+		frame_quantized_f0 = mode_window_filter(quantized_f0, indices_per_frame)
+
+		assert isinstance(frame_quantized_f0, np.ndarray)
+		assert frame_quantized_f0.ndim == 1
+		assert pitch_values.shape[0] / fs == pytest.approx(
+			frame_quantized_f0.shape[0] * 20 / 1000, rel=0.02
+		)

@@ -6,6 +6,7 @@ from librosa import feature as lf
 import amfm_decompy.pYAAPT as pYAAPT
 import amfm_decompy.basic_tools as basic
 import soundfile as sf
+from scipy import stats
 
 
 def load_audio(path, sr: int = 24_000):
@@ -81,6 +82,15 @@ def quantize_mel_scale(mel_pitch_values, levels=127, min_val=133, max_val=571):
 
 def hz_to_mel(frequency):
 	return 2595 * np.log10(1 + frequency / 700)
+
+
+def mode_window_filter(arr: np.ndarray, window_size: int):
+	valid_length = len(arr) - (len(arr) % window_size)
+	arr_trimmed = arr[:valid_length]
+
+	frames = arr_trimmed.reshape(-1, window_size)
+	filtered_audio, _ = stats.mode(frames, axis=1, keepdims=False)
+	return filtered_audio
 
 
 # Preprocess F0 : extract F0 => hz_to_mel => quantize_mel_scale => hz to frame (최빈값 필터) => one-hot encoding (0~127)
