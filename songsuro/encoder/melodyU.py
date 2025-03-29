@@ -25,6 +25,4 @@ def preprocess_f0(audio_filepath: str):
 
 	_ = mode_window_filter(quantized_f0, indices_per_frame)
 
-	# TODO: One Hot Encoding
-
-	# TODO: cover non-voice frames (How to extract from YAPPT?) (Maybe by decibel?)
+	# TODO: cover non-voice frames (How to extract from YAPPT?) (Maybe by decibel?) Feature/#7
