@@ -14,6 +14,7 @@ from songsuro.preprocess import (
 	hz_to_mel,
 	quantize_mel_scale,
 	mode_window_filter,
+	detect_silence,
 )
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
@@ -115,6 +116,7 @@ class TestAudioProcessing:
 		# Check if pitch_values has the same length as the audio file
 		audio_length = len(sf.read(sample_audio_file)[0])
 		assert len(pitch_values) == audio_length
+		assert 0 in np.unique(pitch_values)
 
 	def test_synthesize_audio_from_f0(self, sample_audio_file, tmp_path):
 		# Extract F0 from the sample file
@@ -190,3 +192,18 @@ class TestAudioProcessing:
 		assert pitch_values.shape[0] / fs == pytest.approx(
 			frame_quantized_f0.shape[0] * 20 / 1000, rel=0.02
 		)
+
+	def test_detect_silence(self, sample_audio_file):
+		pitch_values, fs = extract_f0_from_file(sample_audio_file)
+		loaded_audio = load_audio(sample_audio_file, fs)
+		has_sound = detect_silence(loaded_audio)
+		has_sound_resampled = (
+			np.interp(
+				np.linspace(0, 1, len(pitch_values)),
+				np.linspace(0, 1, len(has_sound)),
+				has_sound.astype(float),
+			)
+			> 0.5
+		)
+
+		assert len(has_sound_resampled) == pitch_values.shape[0]
