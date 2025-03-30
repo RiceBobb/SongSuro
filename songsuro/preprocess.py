@@ -112,15 +112,27 @@ def synthesize_audio_from_f0(pitch_values, fs: int, save_path: str = None):
 
 
 def quantize_mel_scale(mel_pitch_values, levels=127, min_val=133, max_val=571):
-	clipped_values = np.clip(mel_pitch_values, min_val, max_val)
-	quantized_values = np.round(
-		(clipped_values - min_val) / (max_val - min_val) * (levels - 1)
+	# Clip non-zero values and leave zeros as is
+	clipped_values = np.where(
+		mel_pitch_values != 0, np.clip(mel_pitch_values, min_val, max_val), 0
 	)
+
+	# Quantize non-zero values and leave zeros as is
+	quantized_values = np.where(
+		clipped_values != 0,
+		np.round((clipped_values - min_val) / (max_val - min_val) * (levels - 1) + 1),
+		0,
+	)
+
 	return quantized_values.astype(int)
 
 
-def hz_to_mel(frequency):
-	return 2595 * np.log10(1 + frequency / 700)
+def hz_to_mel(frequency: np.ndarray):
+	"""
+	Change hz to the mel scale.
+	If the frequency value is 0 (silent), returns 0.
+	"""
+	return np.where(frequency != 0, 2595 * np.log10(1 + frequency / 700), 0)
 
 
 def mode_window_filter(arr: np.ndarray, window_size: int):
@@ -132,4 +144,4 @@ def mode_window_filter(arr: np.ndarray, window_size: int):
 	return filtered_audio
 
 
-# Preprocess F0 : extract F0 => hz_to_mel => quantize_mel_scale => hz to frame (최빈값 필터) => one-hot encoding (0~127)
+# Preprocess F0 : extract F0 => hz_to_mel => quantize_mel_scale => hz to frame (최빈값 필터)

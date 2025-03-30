@@ -176,6 +176,12 @@ class TestAudioProcessing:
 		assert quantized_f0.ndim == 1
 		assert quantized_f0.shape[0] == pitch_values.shape[0]
 
+	def test_quantized_f0_sample(self):
+		sample_pitch_values = np.array([132, 572, 0, 349, 0])
+		quantized_f0 = quantize_mel_scale(sample_pitch_values)
+		assert isinstance(quantized_f0, np.ndarray)
+		assert np.allclose(np.array([1, 127, 0, 63, 0]), quantized_f0)
+
 	def test_mode_window_filter(self, sample_audio_file):
 		pitch_values, fs = extract_f0_from_file(sample_audio_file)
 
@@ -192,6 +198,12 @@ class TestAudioProcessing:
 		assert pitch_values.shape[0] / fs == pytest.approx(
 			frame_quantized_f0.shape[0] * 20 / 1000, rel=0.02
 		)
+		assert 0 in np.unique(frame_quantized_f0)
+
+	def test_hz_to_mel(self):
+		frequency = np.array([0, 6300, 0, 6300])
+		mel_value = hz_to_mel(frequency)
+		assert np.allclose(np.array([0, 2595, 0, 2595]), mel_value)
 
 	def test_detect_silence(self, sample_audio_file):
 		pitch_values, fs = extract_f0_from_file(sample_audio_file)
