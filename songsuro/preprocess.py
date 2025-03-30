@@ -39,23 +39,62 @@ def make_mel_spectrogram(
 	return mel_spectrogram
 
 
-def extract_f0_from_file(filepath: str):
+def extract_f0_from_file(filepath: str, silence_threshold_db: int = -50):
 	"""
-	Extract F0 from audio file
+	Extract F0 from the input audio file
 
 	:param filepath: The path to the audio file.
+	:param silence_threshold_db: The silence threshold in decibel.
+		Default is -50.
 	:return: Pitch_values which is F0 and fs which is the sampling rate of input audio.
+		In the output pitch_values, the zero value represents the 'non-voice' value.
 	"""
 	if not os.path.exists(filepath):
 		raise FileNotFoundError(filepath)
 
 	signal = basic.SignalObj(filepath)
-	# Extract pitch using YAAPT algorithm
+	# Extract pitch using the YAAPT algorithm
 	pitch = pYAAPT.yaapt(signal)
 	# Upsampled pitch data (Same length with original audio)
 	pitch_values = pitch.values_interp
 	fs = signal.fs
-	return pitch_values, int(fs)
+
+	has_sound = detect_silence(signal.data, threshold_db=silence_threshold_db)
+	has_sound_resampled = (
+		np.interp(
+			np.linspace(0, 1, len(pitch_values)),
+			np.linspace(0, 1, len(has_sound)),
+			has_sound.astype(float),
+		)
+		> 0.5
+	)
+
+	pitch_values_masked = pitch_values.copy()
+	pitch_values_masked[~has_sound_resampled] = 0
+
+	return pitch_values_masked, int(fs)
+
+
+def detect_silence(audio_signal, frame_length=1024, hop_length=512, threshold_db=-40):
+	"""
+	Distinguishes between silent and non-silent segments in an audio signal.
+
+	:param audio_signal: Array representing the audio signal
+	:param frame_length: Frame length
+	:param hop_length: Step size between frames
+	:param threshold_db: Threshold in decibels (dB) for detecting silence
+	:return: Boolean array indicating whether each frame contains sound (True) or is silent (False)
+	"""
+	# Compute RMS energy
+	rms = lf.rms(y=audio_signal, frame_length=frame_length, hop_length=hop_length)[0]
+
+	# Convert to decibels
+	db = 20 * np.log10(rms + 1e-10)  # Add small value to avoid log(0)
+
+	# Classify frames based on the threshold_db
+	has_sound = db > threshold_db
+
+	return has_sound
 
 
 def synthesize_audio_from_f0(pitch_values, fs: int, save_path: str = None):
@@ -73,15 +112,27 @@ def synthesize_audio_from_f0(pitch_values, fs: int, save_path: str = None):
 
 
 def quantize_mel_scale(mel_pitch_values, levels=127, min_val=133, max_val=571):
-	clipped_values = np.clip(mel_pitch_values, min_val, max_val)
-	quantized_values = np.round(
-		(clipped_values - min_val) / (max_val - min_val) * (levels - 1)
+	# Clip non-zero values and leave zeros as is
+	clipped_values = np.where(
+		mel_pitch_values != 0, np.clip(mel_pitch_values, min_val, max_val), 0
 	)
+
+	# Quantize non-zero values and leave zeros as is
+	quantized_values = np.where(
+		clipped_values != 0,
+		np.round((clipped_values - min_val) / (max_val - min_val) * (levels - 1) + 1),
+		0,
+	)
+
 	return quantized_values.astype(int)
 
 
-def hz_to_mel(frequency):
-	return 2595 * np.log10(1 + frequency / 700)
+def hz_to_mel(frequency: np.ndarray):
+	"""
+	Change hz to the mel scale.
+	If the frequency value is 0 (silent), returns 0.
+	"""
+	return np.where(frequency != 0, 2595 * np.log10(1 + frequency / 700), 0)
 
 
 def mode_window_filter(arr: np.ndarray, window_size: int):
@@ -93,4 +144,4 @@ def mode_window_filter(arr: np.ndarray, window_size: int):
 	return filtered_audio
 
 
-# Preprocess F0 : extract F0 => hz_to_mel => quantize_mel_scale => hz to frame (최빈값 필터) => one-hot encoding (0~127)
+# Preprocess F0 : extract F0 => hz_to_mel => quantize_mel_scale => hz to frame (최빈값 필터)
