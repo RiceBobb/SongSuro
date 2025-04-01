@@ -3,8 +3,19 @@ import pathlib
 
 import pytest
 import numpy as np
+import soundfile as sf
 
-from songsuro.preprocess import load_audio, make_spectrogram, make_mel_spectrogram
+from songsuro.preprocess import (
+	load_audio,
+	make_spectrogram,
+	make_mel_spectrogram,
+	extract_f0_from_file,
+	synthesize_audio_from_f0,
+	hz_to_mel,
+	quantize_mel_scale,
+	mode_window_filter,
+	detect_silence,
+)
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
 resource_dir = os.path.join(root_dir, "resources")
@@ -87,3 +98,124 @@ class TestAudioProcessing:
 		# Check mel spectrogram dimensions with custom parameters
 		assert mel_spec.shape[0] == n_bins
 		assert mel_spec.shape[1] == power_spec.shape[1]
+
+	def test_extract_f0_from_file(self, sample_audio_file):
+		# Test if the function runs without errors
+		pitch_values, fs = extract_f0_from_file(sample_audio_file)
+
+		# Check if pitch_values and fs are not None
+		assert pitch_values is not None
+		assert fs is not None
+
+		# Check if pitch_values is a numpy array
+		assert isinstance(pitch_values, np.ndarray)
+
+		# Check if fs is an integer
+		assert isinstance(fs, int)
+
+		# Check if pitch_values has the same length as the audio file
+		audio_length = len(sf.read(sample_audio_file)[0])
+		assert len(pitch_values) == audio_length
+		assert 0 in np.unique(pitch_values)
+
+	def test_synthesize_audio_from_f0(self, sample_audio_file, tmp_path):
+		# Extract F0 from the sample file
+		pitch_values, fs = extract_f0_from_file(sample_audio_file)
+
+		# Test synthesize_audio_from_f0 without saving
+		synthesized = synthesize_audio_from_f0(pitch_values, fs)
+
+		# Check if synthesized is a numpy array
+		assert isinstance(synthesized, np.ndarray)
+
+		# Check if synthesized has the same length as pitch_values
+		assert len(synthesized) == len(pitch_values)
+
+		# Test synthesize_audio_from_f0 with saving
+		save_path = tmp_path / "synthesized_audio.wav"
+		_ = synthesize_audio_from_f0(pitch_values, fs, str(save_path))
+
+		# Check if the file was created
+		assert save_path.exists()
+
+		# Check if the saved file has the correct sample rate and length
+		saved_audio, saved_fs = sf.read(str(save_path))
+		assert saved_fs == fs
+		assert len(saved_audio) == len(pitch_values)
+
+	def test_extract_f0_from_file_not_found(self):
+		# Test if FileNotFoundError is raised for non-existent file
+		with pytest.raises(FileNotFoundError):
+			extract_f0_from_file("non_existent_file.wav")
+
+	def test_synthesize_audio_from_f0_zero_pitch(self, tmp_path):
+		# Test synthesize_audio_from_f0 with zero pitch values
+		pitch_values = np.zeros(1000)
+		fs = 44100
+		save_path = tmp_path / "zero_pitch_audio.wav"
+
+		synthesized = synthesize_audio_from_f0(pitch_values, fs, str(save_path))
+
+		# Check if synthesized audio is all zeros
+		assert np.allclose(synthesized, np.zeros_like(synthesized))
+
+		# Check if the file was created and contains all zeros
+		assert save_path.exists()
+		saved_audio, _ = sf.read(str(save_path))
+		assert np.allclose(saved_audio, np.zeros_like(saved_audio))
+
+	def test_quantized_f0(self, sample_audio_file):
+		# Extract F0 from the sample file
+		pitch_values, fs = extract_f0_from_file(sample_audio_file)
+
+		mel_pitch_values = hz_to_mel(pitch_values)
+
+		quantized_f0 = quantize_mel_scale(mel_pitch_values)
+
+		assert isinstance(quantized_f0, np.ndarray)
+		assert quantized_f0.ndim == 1
+		assert quantized_f0.shape[0] == pitch_values.shape[0]
+
+	def test_quantized_f0_sample(self):
+		sample_pitch_values = np.array([132, 572, 0, 349, 0])
+		quantized_f0 = quantize_mel_scale(sample_pitch_values)
+		assert isinstance(quantized_f0, np.ndarray)
+		assert np.allclose(np.array([1, 127, 0, 63, 0]), quantized_f0)
+
+	def test_mode_window_filter(self, sample_audio_file):
+		pitch_values, fs = extract_f0_from_file(sample_audio_file)
+
+		mel_pitch_values = hz_to_mel(pitch_values)
+
+		quantized_f0 = quantize_mel_scale(mel_pitch_values)
+
+		frame_duration_ms = 20
+		indices_per_frame = int((frame_duration_ms / 1000) * fs)
+		frame_quantized_f0 = mode_window_filter(quantized_f0, indices_per_frame)
+
+		assert isinstance(frame_quantized_f0, np.ndarray)
+		assert frame_quantized_f0.ndim == 1
+		assert pitch_values.shape[0] / fs == pytest.approx(
+			frame_quantized_f0.shape[0] * 20 / 1000, rel=0.02
+		)
+		assert 0 in np.unique(frame_quantized_f0)
+
+	def test_hz_to_mel(self):
+		frequency = np.array([0, 6300, 0, 6300])
+		mel_value = hz_to_mel(frequency)
+		assert np.allclose(np.array([0, 2595, 0, 2595]), mel_value)
+
+	def test_detect_silence(self, sample_audio_file):
+		pitch_values, fs = extract_f0_from_file(sample_audio_file)
+		loaded_audio = load_audio(sample_audio_file, fs)
+		has_sound = detect_silence(loaded_audio)
+		has_sound_resampled = (
+			np.interp(
+				np.linspace(0, 1, len(pitch_values)),
+				np.linspace(0, 1, len(has_sound)),
+				has_sound.astype(float),
+			)
+			> 0.5
+		)
+
+		assert len(has_sound_resampled) == pitch_values.shape[0]
