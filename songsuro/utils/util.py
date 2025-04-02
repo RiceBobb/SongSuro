@@ -46,5 +46,10 @@ def temporal_avg_pool(x, mask=None):
 	len_ = (~mask).sum(dim=-1).unsqueeze(-1)
 	x = x.masked_fill(mask, 0)
 	x = x.sum(dim=-1).unsqueeze(-1)
+	# Create a mask for zero-length sequences (all masked)
+	zero_mask = len_ == 0
+	# Replace zeros in len_ with ones to avoid division by zero
+	len_ = torch.where(zero_mask, torch.ones_like(len_), len_)
 	out = torch.div(x, len_)
+	out = torch.where(zero_mask, torch.zeros_like(out), out)
 	return out

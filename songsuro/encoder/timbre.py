@@ -38,5 +38,6 @@ class TimbreEncoder(nn.Module):
 		global_z_e_x = temporal_avg_pool(
 			x=global_z_e_x, mask=(in_nonpadding == 0)
 		)  # (B, C, T) -> (B, C, 1)
+		# (Batch, Channel Dimension, Sequence Length (Time)) -> (Batch, Channel Dimension, 1)
 		spk_embed = global_z_e_x
 		return spk_embed
