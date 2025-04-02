@@ -11,10 +11,11 @@ class TimbreEncoder(nn.Module):
 	"""
 
 	def __init__(
-		self, vq_input_dim: int
+		self, hidden_size: int, vq_input_dim: int
 	):  # The recommended vq_input_dim is 80. (Of course can change it)
 		super().__init__()
 
+		self.hidden_size = hidden_size
 		self.global_conv_in = nn.Conv1d(vq_input_dim, self.hidden_size, 1)
 		self.global_encoder = ConvBlocks(
 			self.hidden_size,
