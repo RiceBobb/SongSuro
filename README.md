@@ -7,6 +7,9 @@ It keeps the song style, pitch, rhythm, and melody unchanged, but only the lyric
 
 <Demo will be here>
 
+[Our YouTube Channel](https://www.youtube.com/@RiceBobbFoundation)
+
+
 ## Build from source
 
 ### 1. Install uv
@@ -53,7 +56,7 @@ E
 E Attempted to load corpora/cmudict
 ```
 
-This error occurs when the `cmudict` resource is not installed in your NLTK data directory. 
+This error occurs when the `cmudict` resource is not installed in your NLTK data directory.
 Try running the following command in your Python environment to download the `cmudict` resource:
 
 ```python
@@ -89,12 +92,12 @@ nltk.download('blahblah')
 ### 1️⃣ Error: `SSL error downloading NLTK data`
 The error message is like this:
 ```markdown
-[nltk_data] Error loading cmudict: <urlopen error 
-[SSL: [nltk_data] CERTIFICATE_VERIFY_FAILED] certificate verify failed: 
+[nltk_data] Error loading cmudict: <urlopen error
+[SSL: [nltk_data] CERTIFICATE_VERIFY_FAILED] certificate verify failed:
 [nltk_data] unable to get local issuer certificate (_ssl.c:1000)>
 ```
 
-or 
+or
 
 ```markdown
 [nltk_data] Error loading averaged_perceptron_tagger: <urlopen error
@@ -127,7 +130,7 @@ import nltk
 nltk.download('YOUR_RESOURCE')
 ```
 
-### [Way 2](https://stackoverflow.com/questions/41348621/ssl-error-downloading-nltk-data/42890688#42890688) Install certificates 
+### [Way 2](https://stackoverflow.com/questions/41348621/ssl-error-downloading-nltk-data/42890688#42890688) Install certificates
 
 Run the following command to install the certificates. Please replace `Python 3.x` with your Python version.
 
