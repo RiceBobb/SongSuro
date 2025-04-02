@@ -4,6 +4,8 @@ import pathlib
 import pytest
 import numpy as np
 import soundfile as sf
+from tests.resources.sample_lyrics import KO_LIJUNGDDAK, EN_DIEWITHSMILE, KO_MANGGASONG
+import logging
 
 from songsuro.preprocess import (
 	load_audio,
@@ -15,6 +17,7 @@ from songsuro.preprocess import (
 	quantize_mel_scale,
 	mode_window_filter,
 	detect_silence,
+	convert_g2p
 )
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
@@ -219,3 +222,28 @@ class TestAudioProcessing:
 		)
 
 		assert len(has_sound_resampled) == pitch_values.shape[0]
+
+	def test_detect_silence_zero_audio(self):
+		zero_audio = np.zeros(1000)
+		has_sound = detect_silence(zero_audio)
+		assert np.allclose(np.zeros_like(has_sound), has_sound)
+
+	def test_convert_g2p_korean(self):
+		ko_lyrics = [KO_LIJUNGDDAK]
+		phonemes = convert_g2p(ko_lyrics, language="ko")
+		assert isinstance(phonemes, list)
+		assert len(phonemes) == len(ko_lyrics)
+		assert all(isinstance(p, str) for lst in phonemes for p in lst)
+
+	def test_convert_g2p_english(self):
+		en_lyrics = [EN_DIEWITHSMILE]
+		phonemes = convert_g2p(en_lyrics, language="en")
+
+		assert isinstance(phonemes, list)
+		assert len(phonemes) == len(en_lyrics)
+		assert all(isinstance(p, str) for lst in phonemes for p in lst)
+
+	def test_convert_g2p_invalid_language(self):
+		lyrics = ["Hello world"]
+		with pytest.raises(ValueError, match="Unsupported language: es"):
+			convert_g2p(lyrics, language="es")
