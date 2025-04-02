@@ -9,6 +9,8 @@ import amfm_decompy.basic_tools as basic
 import soundfile as sf
 from scipy import stats
 from typing import List
+from tqdm import tqdm
+
 from g2p_en import G2p as G2pEn
 from g2pk import G2p as G2pKo
 # TODO: Update the g2pc library later. (g2pc is not available)
@@ -168,8 +170,10 @@ def convert_g2p(lyrics_list: List[str], language: str = "ko") -> List[str]:
 	else:
 		raise ValueError(f"Unsupported language: {language}")
 
-	for lyric in lyrics_list:
+	for lyric in tqdm(lyrics_list):
 		phonemes_lst.append(g2p(lyric))
 
+	if len(phonemes_lst) == 0:
+		logging.warning("No phonemes were generated. Please check the input lyrics.")
 
 	return phonemes_lst
