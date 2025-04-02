@@ -152,11 +152,11 @@ def mode_window_filter(arr: np.ndarray, window_size: int):
 
 # Preprocess F0 : extract F0 => hz_to_mel => quantize_mel_scale => hz to frame (최빈값 필터)
 
-def convert_g2p(lyrics: List[str], language: str = "ko") -> List[str]:
+def convert_g2p(lyrics_list: List[str], language: str = "ko") -> List[str]:
 	"""
 	Converting grapheme to phoneme using g2p library.
 
-	:param lyrics: The list of lyrics.
+	:param lyrics_list: The list of lyrics.
 	:param language: The language of the lyrics. Default is 'ko'.
 	"""
 	phonemes_lst = []
@@ -168,7 +168,7 @@ def convert_g2p(lyrics: List[str], language: str = "ko") -> List[str]:
 	else:
 		raise ValueError(f"Unsupported language: {language}")
 
-	for lyric in lyrics:
+	for lyric in lyrics_list:
 		phonemes_lst.append(g2p(lyric))
 
 
