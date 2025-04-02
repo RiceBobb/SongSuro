@@ -3,11 +3,9 @@ Code from TCSinger (EMNLP 2024)
 https://github.com/AaronZ345/TCSinger
 """
 
-import torch
 from torch import nn
 
 from songsuro.modules.commons.leftpad_conv import ConvBlocks as LeftPadConvBlocks
-from songsuro.modules.commons.conv import ConvBlocks
 from songsuro.utils.util import group_hidden_by_segs
 from songsuro.modules.TCSinger.vq import VQEmbeddingEMA, VectorQuantiser
 
@@ -31,7 +29,6 @@ class StyleEncoder(nn.Module):
 		self.vq_ph_channel = hparams["vq_ph_channel"]
 
 		self.ph_conv_in = nn.Conv1d(80, self.hidden_size, 1)
-		self.global_conv_in = nn.Conv1d(hparams["vq_input_dim"], self.hidden_size, 1)
 		self.ph_encoder = LeftPadConvBlocks(
 			self.hidden_size,
 			self.hidden_size,
@@ -40,7 +37,7 @@ class StyleEncoder(nn.Module):
 			layers_in_block=2,
 			is_BTC=False,
 			num_layers=5,
-		)
+		)  # Phoneme Encoder (음소)
 		self.ph_postnet = LeftPadConvBlocks(
 			self.hidden_size,
 			self.hidden_size,
@@ -50,18 +47,9 @@ class StyleEncoder(nn.Module):
 			is_BTC=False,
 			num_layers=5,
 		)
-		self.global_encoder = ConvBlocks(
-			self.hidden_size,
-			self.hidden_size,
-			None,
-			kernel_size=31,
-			layers_in_block=2,
-			is_BTC=False,
-			num_layers=5,
-		)  # Timbre Encoder
 		self.ph_latents_proj_in = nn.Conv1d(
 			self.hidden_size, hparams["vq_ph_channel"], 1
-		)
+		)  # Linear Projection
 		if self.hparams["vq"] == "ema":
 			self.vq = VQEmbeddingEMA(
 				hparams["vq_ph_codebook_dim"], hparams["vq_ph_channel"]
@@ -90,7 +78,7 @@ class StyleEncoder(nn.Module):
 		# Forward ph postnet
 		ph_z_e_x = group_hidden_by_segs(
 			ph_z_e_x, in_mel2ph, max_ph_length, is_BHT=True
-		)[0]
+		)[0]  # Grouping Mel-spectrogram
 
 		ph_z_e_x = self.ph_postnet(ph_z_e_x, nonpadding=ph_nonpadding) * ph_nonpadding
 		ph_z_e_x = self.ph_latents_proj_in(ph_z_e_x)
@@ -106,27 +94,6 @@ class StyleEncoder(nn.Module):
 		ph_z_q_x_bar = ph_z_q_x_bar_.permute(0, 2, 1).contiguous()
 		ph_z_q_x_bar = self.ph_latents_proj_out(ph_z_q_x_bar)
 		return ph_z_q_x_bar
-
-	def temporal_avg_pool(self, x, mask=None):
-		len_ = (~mask).sum(dim=-1).unsqueeze(-1)
-		x = x.masked_fill(mask, 0)
-		x = x.sum(dim=-1).unsqueeze(-1)
-		out = torch.div(x, len_)
-		return out
-
-	def encode_spk_embed(self, x):
-		in_nonpadding = (x.abs().sum(dim=-2) > 0).float()[:, None, :]
-		# forward encoder
-		x_global = self.global_conv_in(x) * in_nonpadding
-		global_z_e_x = (
-			self.global_encoder(x_global, nonpadding=in_nonpadding) * in_nonpadding
-		)
-		# group by hidden to phoneme-level
-		global_z_e_x = self.temporal_avg_pool(
-			x=global_z_e_x, mask=(in_nonpadding == 0)
-		)  # (B, C, T) -> (B, C, 1)
-		spk_embed = global_z_e_x
-		return spk_embed
 
 	def encode_style(self, x, in_nonpadding, in_mel2ph, ph_nonpadding, ph_lengths):
 		# forward encoder
