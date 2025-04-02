@@ -4,7 +4,6 @@ import pathlib
 import pytest
 import numpy as np
 import soundfile as sf
-import logging
 from unittest.mock import patch
 
 from songsuro.preprocess import (
@@ -17,7 +16,7 @@ from songsuro.preprocess import (
 	quantize_mel_scale,
 	mode_window_filter,
 	detect_silence,
-	convert_g2p
+	convert_g2p,
 )
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
@@ -41,12 +40,12 @@ KO_MANGGASONG = """
 """
 
 KO_LIJUNGDDAK = """
-안하긴뭘안해~~ 반갑습니다~~ 
-이피엘에서 우승못하는팀 누구야? 소리질러~~!! 
-리중딱 리중딱 신나는노래~ 나도한번 불러본다~~(박수) (박수) (박수) 
-짠리잔짠~~ 우리는 우승하기 싫~어~ 왜냐면 우승하기 싫은팀이니깐~ 
-20년 내~내~ 프리미어리그~ 우승도 못하는 우리팀이다. 리중딱 리중딱 신나는노래 ~~~ 
-나도한번불러본다~ 리중딱 리중딱 신나는노래 ~~ 
+안하긴뭘안해~~ 반갑습니다~~
+이피엘에서 우승못하는팀 누구야? 소리질러~~!!
+리중딱 리중딱 신나는노래~ 나도한번 불러본다~~(박수) (박수) (박수)
+짠리잔짠~~ 우리는 우승하기 싫~어~ 왜냐면 우승하기 싫은팀이니깐~
+20년 내~내~ 프리미어리그~ 우승도 못하는 우리팀이다. 리중딱 리중딱 신나는노래 ~~~
+나도한번불러본다~ 리중딱 리중딱 신나는노래 ~~
 가슴치며 불러본다~ 리중딱 노래가사는~ 생활과 정보가 있는노래 중딱이~~와 함께라면 제~라드도함께 우승못한다.
 """
 
@@ -298,16 +297,21 @@ class TestAudioProcessing:
 
 	def test_convert_g2p_invalid_language(self):
 		lyrics = ["Hello world"]
-		empty_lyrics = []
 		with pytest.raises(ValueError, match="Unsupported language: es"):
 			convert_g2p(lyrics, language="es")
 
 	def test_convert_g2p_empty_lst_logs_warning(self):
-		with patch('logging.warning') as mock_warning:
+		with patch("logging.warning") as mock_warning:
 			convert_g2p([])  # 빈 리스트 전달
-			mock_warning.assert_called_once_with("No phonemes were generated. Please check the input lyrics.")
+			mock_warning.assert_called_once_with(
+				"No phonemes were generated. Please check the input lyrics."
+			)
 
 	def validate_phonemes(self, phonemes, lyrics):
 		assert isinstance(phonemes, list), "Phonemes should be a list."
-		assert len(phonemes) == len(lyrics), "Phonemes length should match lyrics length."
-		assert all(isinstance(p, str) for lst in phonemes for p in lst), "All phonemes should be strings."
+		assert len(phonemes) == len(
+			lyrics
+		), "Phonemes length should match lyrics length."
+		assert all(
+			isinstance(p, str) for lst in phonemes for p in lst
+		), "All phonemes should be strings."
