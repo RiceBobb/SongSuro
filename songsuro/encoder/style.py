@@ -69,6 +69,7 @@ class StyleEncoder(nn.Module):
 	def encode_ph_vqcode(
 		self, x, in_nonpadding, in_mel2ph, max_ph_length, ph_nonpadding
 	):
+		# in_nonpadding : (batch, 1, sequence length)
 		# forward encoder
 		x_ph = self.ph_conv_in(x) * in_nonpadding
 		ph_z_e_x = (
