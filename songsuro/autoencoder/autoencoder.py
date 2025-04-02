@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from vector_quantize_pytorch import ResidualVQ
 
 
@@ -13,6 +14,7 @@ class WaveNetEncoder(nn.Module):
 		residual_channels=32,
 		skip_channels=256,
 		kernel_size=2,
+		output_channels=256,
 	):
 		super(WaveNetEncoder, self).__init__()
 
@@ -22,6 +24,7 @@ class WaveNetEncoder(nn.Module):
 		self.residual_channels = residual_channels
 		self.skip_channels = skip_channels
 		self.kernel_size = kernel_size
+		self.output_channels = output_channels
 
 		# 초기 컨볼루션 레이어
 		self.start_conv = nn.Conv1d(
@@ -40,14 +43,14 @@ class WaveNetEncoder(nn.Module):
 				dilation = 2**layer
 				self.dilations.append(dilation)
 
-				# Dilated convolutions
+				# Dilated convolutions with 'same' padding for non-causal approach
 				self.dilated_convs.append(
 					nn.Conv1d(
 						in_channels=residual_channels,
 						out_channels=dilation_channels,
 						kernel_size=kernel_size,
 						dilation=dilation,
-						padding=dilation,
+						padding="same",  # Use 'same' padding for non-causal approach
 					)
 				)
 
@@ -72,40 +75,39 @@ class WaveNetEncoder(nn.Module):
 		# 출력 레이어
 		self.final_conv = nn.Conv1d(
 			in_channels=skip_channels,
-			out_channels=256,  # 인코딩 차원
+			out_channels=output_channels,
 			kernel_size=1,
 		)
+
+		# 명시적인 어댑티브 풀링 레이어 추가
+		self.adaptive_pool = nn.AdaptiveAvgPool1d(output_size=None)  # 동적 크기 조정
 
 		self.relu = nn.ReLU()
 
 	def forward(self, x):
 		x = self.start_conv(x)
-		skip = 0
+		skip = None
 
 		# Residual blocks 처리
 		for i in range(len(self.dilated_convs)):
 			residual = x
-
-			# Dilated convolution
 			x = self.dilated_convs[i](x)
 			x = torch.tanh(x)
-
-			# Residual connection
 			x = self.residual_convs[i](x)
-			x = x + residual[:, :, : x.size(2)]
+			x = x + residual
 
 			# Skip connection
 			s = self.skip_convs[i](x)
-			if skip == 0:
+			if skip is None:
 				skip = s
 			else:
-				skip = skip + s[:, :, : skip.size(2)]
+				skip = skip + s
 
 		# 최종 출력
 		x = self.relu(skip)
-		x = self.final_conv(x)
+		output = self.final_conv(x)
 
-		return x
+		return output
 
 
 # HiFi-GAN V1 디코더 부분
@@ -199,6 +201,9 @@ class HiFiGANDecoder(nn.Module):
 		# 최종 출력
 		x = self.final_conv(x)
 		x = self.tanh(x)
+
+		# 다운샘플링 추가 (16384 → 128)
+		x = F.interpolate(x, size=128, mode="linear", align_corners=False)
 
 		return x
 
