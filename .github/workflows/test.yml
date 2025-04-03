@@ -37,7 +37,7 @@ jobs:
       - name: Install NLTK and download model
         run: |
           uv pip install nltk
-          uv run python -c "import nltk; nltk.download('cmudict'); nltk.download('averaged_perceptron_tagger')"
+          uv run python -c "import nltk; nltk.download('cmudict'); nltk.download('averaged_perceptron_tagger'); nltk.download('averaged_perceptron_tagger_eng')"
       - name: Run tests
         run: |
           uv run python -m pytest -o log_cli=true --log-cli-level=INFO -n auto tests/
