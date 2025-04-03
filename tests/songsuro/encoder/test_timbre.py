@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.testing import assert_close
 
 from songsuro.modules.commons.conv import ConvBlocks
-from songsuro.encoder.timbre import TimbreEncoder
+from songsuro.condition.encoder.timbre import TimbreEncoder
 
 
 class TestTimbreEncoder:

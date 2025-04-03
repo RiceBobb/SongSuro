@@ -1,6 +1,7 @@
 import pytest
 import torch
-from songsuro.encoder.style import StyleEncoder, weights_init
+
+from songsuro.condition.encoder.style import StyleEncoder, weights_init
 
 
 class TestStyleEncoder:
