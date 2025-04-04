@@ -4,7 +4,7 @@ import pathlib
 import numpy as np
 import pytest
 
-from songsuro.encoder.melodyU import preprocess_f0
+from songsuro.condition.encoder.melodyU import preprocess_f0
 
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent.parent
