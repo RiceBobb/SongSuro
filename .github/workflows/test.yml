@@ -19,6 +19,10 @@ jobs:
       - name: Install gcc
         run: |
           sudo apt-get install gcc
+      - uses: actions/setup-java@v4 # for konlpy
+        with:
+          distribution: 'zulu'
+          java-version: '17'
       - name: Install uv
         uses: astral-sh/setup-uv@v5
       - name: Install Python 3.10
@@ -33,7 +37,7 @@ jobs:
       - name: Install NLTK and download model
         run: |
           uv pip install nltk
-          uv run python -c "import nltk; nltk.download('cmudict')"
+          uv run python -c "import nltk; nltk.download('cmudict'); nltk.download('averaged_perceptron_tagger'); nltk.download('averaged_perceptron_tagger_eng')"
       - name: Run tests
         run: |
           uv run python -m pytest -o log_cli=true --log-cli-level=INFO -n auto tests/
