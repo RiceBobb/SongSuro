@@ -29,6 +29,7 @@ dependencies = [
     "soundfile>=0.13.1",
     "torch>=2.6.0",
     "tqdm>=4.67.1",
+    "vector-quantize-pytorch>=1.22.4",
 ]
 dynamic = ["version"]
 
