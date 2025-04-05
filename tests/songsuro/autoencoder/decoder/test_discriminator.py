@@ -11,67 +11,67 @@ from songsuro.autoencoder.decoder.discriminator import (
 
 class TestDiscriminatorP:
 	def test_initialization(self):
-		# 기본 초기화 테스트
+		# Basic initialization test
 		disc = DiscriminatorP(period=2)
 
 		assert disc.period == 2
 		assert len(disc.convs) == 5
 		assert isinstance(disc.conv_post, nn.Conv2d)
 
-		# 모든 레이어가 weight_norm으로 초기화되었는지 확인
+		# Check if all layers are initialized with weight_norm
 		for layer in disc.convs:
 			assert hasattr(layer, "weight_v")
 		assert hasattr(disc.conv_post, "weight_v")
 
 	def test_spectral_norm(self):
-		# spectral_norm 사용 테스트
+		# Test using spectral_norm
 		disc = DiscriminatorP(period=2, use_spectral_norm=True)
 
-		# 모든 레이어가 spectral_norm으로 초기화되었는지 확인
+		# Check if all layers are initialized with spectral_norm
 		for layer in disc.convs:
 			assert hasattr(layer, "weight_orig")
 		assert hasattr(disc.conv_post, "weight_orig")
 
 	def test_forward(self):
-		# 순전파 테스트
+		# Forward pass test
 		disc = DiscriminatorP(period=2)
 
-		# 입력 텐서 생성 (배치 크기 3, 채널 1, 시간 100)
+		# Create input tensor (batch size 3, channel 1, time 100)
 		x = torch.randn(3, 1, 100)
 
-		# 순전파 실행
+		# Execute forward pass
 		output, fmap = disc(x)
 
-		# 출력 형태 확인
+		# Check output type
 		assert isinstance(output, torch.Tensor)
-		assert len(fmap) == 6  # 5개 conv + 1개 conv_post
+		assert len(fmap) == 6  # 5 convs + 1 conv_post
 
-		# 출력 크기 확인
-		assert output.shape[0] == 3  # 배치 크기
+		# Check output shape
+		assert output.shape[0] == 3  # batch size
 
-		# feature map 확인
+		# Check feature maps
 		for i, feat in enumerate(fmap):
 			assert isinstance(feat, torch.Tensor)
-			assert feat.shape[0] == 3  # 배치 크기
+			assert feat.shape[0] == 3  # batch size
 
 	def test_padding(self):
-		# 패딩 테스트 (기간으로 나누어 떨어지지 않는 경우)
+		# Padding test (when input length is not divisible by period)
 		disc = DiscriminatorP(period=3)
 
-		# 입력 텐서 생성 (배치 크기 2, 채널 1, 시간 101)
+		# Create input tensor (batch size 2, channel 1, time 101)
 		x = torch.randn(2, 1, 101)
 
-		# 순전파 실행
+		# Execute forward pass
 		output, fmap = disc(x)
 
-		# 출력 형태 확인
+		# Check output type
 		assert isinstance(output, torch.Tensor)
-		assert output.shape[0] == 2  # 배치 크기
+		assert output.shape[0] == 2  # batch size
 
 
 class TestMultiPeriodDiscriminator:
 	def test_initialization(self):
-		# 초기화 테스트
+		# Initialization test
 		mpd = MultiPeriodDiscriminator()
 
 		assert len(mpd.discriminators) == 5
@@ -80,118 +80,118 @@ class TestMultiPeriodDiscriminator:
 			assert d.period in [2, 3, 5, 7, 11]
 
 	def test_forward(self):
-		# 순전파 테스트
+		# Forward pass test
 		mpd = MultiPeriodDiscriminator()
 
-		# 입력 텐서 생성 (배치 크기 2, 채널 1, 시간 200)
+		# Create input tensors (batch size 2, channel 1, time 200)
 		y = torch.randn(2, 1, 200)
 		y_hat = torch.randn(2, 1, 200)
 
-		# 순전파 실행
+		# Execute forward pass
 		y_d_rs, y_d_gs, fmap_rs, fmap_gs = mpd(y, y_hat)
 
-		# 출력 형태 확인
-		assert len(y_d_rs) == 5  # 5개 판별자
+		# Check output shapes
+		assert len(y_d_rs) == 5  # 5 discriminators
 		assert len(y_d_gs) == 5
 		assert len(fmap_rs) == 5
 		assert len(fmap_gs) == 5
 
-		# 각 판별자의 출력 확인
+		# Check each discriminator's output
 		for i in range(5):
 			assert isinstance(y_d_rs[i], torch.Tensor)
 			assert isinstance(y_d_gs[i], torch.Tensor)
-			assert y_d_rs[i].shape[0] == 2  # 배치 크기
-			assert y_d_gs[i].shape[0] == 2  # 배치 크기
+			assert y_d_rs[i].shape[0] == 2  # batch size
+			assert y_d_gs[i].shape[0] == 2  # batch size
 
-			# feature map 확인
-			assert len(fmap_rs[i]) == 6  # 5개 conv + 1개 conv_post
+			# Check feature maps
+			assert len(fmap_rs[i]) == 6  # 5 convs + 1 conv_post
 			assert len(fmap_gs[i]) == 6
 
 
 class TestDiscriminatorS:
 	def test_initialization(self):
-		# 기본 초기화 테스트
+		# Basic initialization test
 		disc = DiscriminatorS()
 
 		assert len(disc.convs) == 7
 		assert isinstance(disc.conv_post, nn.Conv1d)
 
-		# 모든 레이어가 weight_norm으로 초기화되었는지 확인
+		# Check if all layers are initialized with weight_norm
 		for layer in disc.convs:
 			assert hasattr(layer, "weight_v")
 		assert hasattr(disc.conv_post, "weight_v")
 
 	def test_spectral_norm(self):
-		# spectral_norm 사용 테스트
+		# Test using spectral_norm
 		disc = DiscriminatorS(use_spectral_norm=True)
 
-		# 모든 레이어가 spectral_norm으로 초기화되었는지 확인
+		# Check if all layers are initialized with spectral_norm
 		for layer in disc.convs:
 			assert hasattr(layer, "weight_orig")
 		assert hasattr(disc.conv_post, "weight_orig")
 
 	def test_forward(self):
-		# 순전파 테스트
+		# Forward pass test
 		disc = DiscriminatorS()
 
-		# 입력 텐서 생성 (배치 크기 3, 채널 1, 시간 100)
+		# Create input tensor (batch size 3, channel 1, time 100)
 		x = torch.randn(3, 1, 100)
 
-		# 순전파 실행
+		# Execute forward pass
 		output, fmap = disc(x)
 
-		# 출력 형태 확인
+		# Check output type
 		assert isinstance(output, torch.Tensor)
-		assert len(fmap) == 8  # 7개 conv + 1개 conv_post
+		assert len(fmap) == 8  # 7 convs + 1 conv_post
 
-		# 출력 크기 확인
-		assert output.shape[0] == 3  # 배치 크기
+		# Check output shape
+		assert output.shape[0] == 3  # batch size
 
-		# feature map 확인
+		# Check feature maps
 		for i, feat in enumerate(fmap):
 			assert isinstance(feat, torch.Tensor)
-			assert feat.shape[0] == 3  # 배치 크기
+			assert feat.shape[0] == 3  # batch size
 
 
 class TestMultiScaleDiscriminator:
 	def test_initialization(self):
-		# 초기화 테스트
+		# Initialization test
 		msd = MultiScaleDiscriminator()
 
 		assert len(msd.discriminators) == 3
 		assert len(msd.meanpools) == 2
 
-		# 첫 번째 판별자는 spectral_norm 사용
+		# The first discriminator uses spectral_norm
 		assert hasattr(msd.discriminators[0].convs[0], "weight_orig")
 
-		# 나머지 판별자는 weight_norm 사용
+		# The others use weight_norm
 		assert hasattr(msd.discriminators[1].convs[0], "weight_v")
 		assert hasattr(msd.discriminators[2].convs[0], "weight_v")
 
 	def test_forward(self):
-		# 순전파 테스트
+		# Forward pass test
 		msd = MultiScaleDiscriminator()
 
-		# 입력 텐서 생성 (배치 크기 2, 채널 1, 시간 200)
+		# Create input tensors (batch size 2, channel 1, time 200)
 		y = torch.randn(2, 1, 200)
 		y_hat = torch.randn(2, 1, 200)
 
-		# 순전파 실행
+		# Execute forward pass
 		y_d_rs, y_d_gs, fmap_rs, fmap_gs = msd(y, y_hat)
 
-		# 출력 형태 확인
-		assert len(y_d_rs) == 3  # 3개 판별자
+		# Check output shapes
+		assert len(y_d_rs) == 3  # 3 discriminators
 		assert len(y_d_gs) == 3
 		assert len(fmap_rs) == 3
 		assert len(fmap_gs) == 3
 
-		# 각 판별자의 출력 확인
+		# Check each discriminator's output
 		for i in range(3):
 			assert isinstance(y_d_rs[i], torch.Tensor)
 			assert isinstance(y_d_gs[i], torch.Tensor)
-			assert y_d_rs[i].shape[0] == 2  # 배치 크기
-			assert y_d_gs[i].shape[0] == 2  # 배치 크기
+			assert y_d_rs[i].shape[0] == 2  # batch size
+			assert y_d_gs[i].shape[0] == 2  # batch size
 
-			# feature map 확인
-			assert len(fmap_rs[i]) == 8  # 7개 conv + 1개 conv_post
+			# Check feature maps
+			assert len(fmap_rs[i]) == 8  # 7 convs + 1 conv_post
 			assert len(fmap_gs[i]) == 8
