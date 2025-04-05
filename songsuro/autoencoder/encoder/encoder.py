@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from .vconv import VirtualConv, output_offsets
-from .netmisc import xavier_init
+from songsuro.autoencoder.encoder.vconv import VirtualConv, output_offsets
+from songsuro.autoencoder.encoder.netmisc import xavier_init
 from sys import stderr
 
 
@@ -50,10 +50,9 @@ class ConvReLURes(nn.Module):
 		# out = self.bn(out)
 		act = self.relu(pre)
 		if self.do_res:
-			if self.residual_offsets[1] is None:
-				act[...] += x[:, :, self.residual_offsets[0] :]
-			else:
-				act[...] += x[:, :, self.residual_offsets[0] : self.residual_offsets[1]]
+			act[...] += x[
+				:, :, self.residual_offsets[0] : self.residual_offsets[1] or None
+			]
 			# act += x[:,:,self.residual_offsets[0]:self.residual_offsets[1] or None]
 		# act_sum = act.sum()
 		self.frac_zero_act = (act == 0.0).sum().double() / act.nelement()
