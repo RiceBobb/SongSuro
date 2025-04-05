@@ -1,6 +1,6 @@
 import torch
 
-from songsuro.autoencoder.decoder.loss import (
+from songsuro.autoencoder.decoder.decoder_loss import (
 	feature_loss,
 	discriminator_loss,
 	generator_loss,
