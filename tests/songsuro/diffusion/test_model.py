@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import Linear
 
-from songsuro.diffusion.model import DiffusionEmbedding, ResidualBlock
+from songsuro.diffusion.model import DiffusionEmbedding, ResidualBlock, Denoiser
 
 
 class TestDiffusionEmbedding:
@@ -153,3 +153,26 @@ def test_residual_block_gradient_flow():
 	assert x.grad is not None
 	assert diffusion_step_embedding.grad is not None
 	assert condition_embedding.grad is not None
+
+
+@pytest.fixture
+def denoiser():
+	return Denoiser(100)
+
+
+@pytest.mark.parametrize("batch_size", [1, 4])
+def test_denoiser_forward(denoiser, batch_size):
+	seq_length = 50
+	channel_size = 256
+	diffusion_step = torch.Tensor([40])
+
+	previous_step = torch.randn(batch_size, channel_size // 2, seq_length)
+	prior = torch.randn(
+		batch_size, channel_size // 2, seq_length
+	)  # Need to check because I don't know well about prior
+	condition_embedding = torch.randn(batch_size, 192, seq_length)
+
+	output = denoiser(previous_step, diffusion_step, prior, condition_embedding)
+
+	assert output.shape == (batch_size, channel_size // 2, seq_length)
+	assert torch.isfinite(output).all()

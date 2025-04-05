@@ -120,3 +120,58 @@ class ResidualBlock(nn.Module):
 		after_gate = self.output_projection(after_gate)
 		residual, skip = torch.chunk(after_gate, 2, dim=1)
 		return (residual + y) / sqrt(2.0), skip  # (B, C, L), (B, C, L)
+
+
+class Denoiser(nn.Module):
+	def __init__(
+		self,
+		noise_schedule_length,  # noise_schedule_length represents T in diffusion process
+		n_residual_layer: int = 20,
+		channel_size: int = 256,
+		kernel_size: int = 3,
+		dilation: int = 1,
+		condition_embedding_dim: int = 192,
+	):
+		super().__init__()
+		self.n_residual_layer = n_residual_layer
+		self.step_embedding = DiffusionEmbedding(noise_schedule_length, channel_size)
+		self.residual_layers = nn.ModuleList(
+			[
+				ResidualBlock(
+					condition_embedding_dim, channel_size, kernel_size, dilation
+				)
+				for _ in range(n_residual_layer)
+			]
+		)
+		self.skip_projection = nn.Linear(channel_size, channel_size)
+		self.output_projection = nn.Linear(channel_size, channel_size // 2)
+
+	def forward(self, previous_step, diffusion_step, prior, condition_embedding):
+		"""
+		Forward pass of the denoiser in Latent Diffusion Model.
+
+		:param previous_step: Shape is (B, c/2, L)
+		:param diffusion_step: Int or float. The step number of the diffusion step.
+		:param prior: Shape is (B, c/2, L)
+		:param condition_embedding: The condition embedding from the conditioner Encoder.
+			Shape is (B, input_condition_dim, L).
+		:return:
+		"""
+		x = torch.concat((previous_step, prior), dim=1)  # (B, C, L)
+		step_embedding = self.step_embedding(diffusion_step)  # (B, C)
+
+		skip = None
+		for layer in self.residual_layers:
+			x, skip_connection = layer(x, step_embedding, condition_embedding)
+			skip = skip_connection if skip is None else skip_connection + skip
+
+		res = skip / sqrt(self.n_residual_layer)
+		res = res.transpose(1, 2)
+		res = self.skip_projection(res)
+		res = res.transpose(1, 2)
+		res = F.mish(res)
+		res = res.transpose(1, 2)
+		res = self.output_projection(res)
+		res = res.transpose(1, 2)
+
+		return res
