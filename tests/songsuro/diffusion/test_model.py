@@ -10,7 +10,7 @@ class TestDiffusionEmbedding:
 	@pytest.fixture
 	def embedding_model(self):
 		max_steps = 100
-		return DiffusionEmbedding(max_steps)
+		return DiffusionEmbedding(max_steps, 512)
 
 	def test_initialization(self, embedding_model):
 		# Test that the model initializes correctly
@@ -109,27 +109,26 @@ def test_residual_block_forward():
 	assert skip.shape == (batch_size, 32, seq_length)
 
 
-def test_residual_block_with_different_dimensions():
-	"""Test the ResidualBlock with different input dimensions."""
-	# Test with different channel sizes and sequence lengths
-	for channel_size in [16, 32, 64]:
-		for seq_length in [8, 16, 32]:
-			block = ResidualBlock(
-				input_condition_dim=48,
-				channel_size=channel_size,
-				kernel_size=3,
-				dilation=1,
-			)
+@pytest.mark.parametrize("channel_size", [16, 32, 64])
+@pytest.mark.parametrize("seq_length", [8, 16, 32])
+def test_residual_block_with_different_dimensions(channel_size, seq_length):
+	"""Test the ResidualBlock with different input dimensions."""  # Test with different channel sizes and sequence lengths
+	block = ResidualBlock(
+		input_condition_dim=48,
+		channel_size=channel_size,
+		kernel_size=3,
+		dilation=1,
+	)
 
-			batch_size = 2
-			x = torch.randn(batch_size, channel_size, seq_length)
-			diffusion_step_embedding = torch.randn(batch_size, channel_size)
-			condition_embedding = torch.randn(batch_size, 48, seq_length)
+	batch_size = 2
+	x = torch.randn(batch_size, channel_size, seq_length)
+	diffusion_step_embedding = torch.randn(batch_size, channel_size)
+	condition_embedding = torch.randn(batch_size, 48, seq_length)
 
-			residual, skip = block(x, diffusion_step_embedding, condition_embedding)
+	residual, skip = block(x, diffusion_step_embedding, condition_embedding)
 
-			assert residual.shape == (batch_size, channel_size, seq_length)
-			assert skip.shape == (batch_size, channel_size, seq_length)
+	assert residual.shape == (batch_size, channel_size, seq_length)
+	assert skip.shape == (batch_size, channel_size, seq_length)
 
 
 def test_residual_block_gradient_flow():

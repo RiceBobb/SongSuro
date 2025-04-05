@@ -16,13 +16,17 @@ def Conv1d(*args, **kwargs):
 
 
 class DiffusionEmbedding(nn.Module):
-	def __init__(self, max_steps):
+	def __init__(self, max_steps, embedding_dim):
 		super().__init__()
 		self.register_buffer(
 			"embedding", self._build_embedding(max_steps), persistent=False
 		)  # Here set the 'self.embedding'
-		self.projection1 = Linear(128, 512)  # First FC from Diffusion-step embedding
-		self.projection2 = Linear(512, 512)  # Second FC from Diffusion-step embedding
+		self.projection1 = Linear(
+			128, embedding_dim
+		)  # First FC from Diffusion-step embedding
+		self.projection2 = Linear(
+			embedding_dim, embedding_dim
+		)  # Second FC from Diffusion-step embedding
 
 	def forward(self, diffusion_step):
 		# Input will be just an integer or float represents diffusion step number
