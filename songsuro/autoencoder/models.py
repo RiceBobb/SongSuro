@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class Autoencoder(nn.Module):
 	def __init__(self, encoder, quantizer, decoder):
-		super(Autoencoder, self).__init__()
+		super().__init__()
 		self.encoder = encoder
 		self.quantizer = quantizer
 		self.decoder = decoder
