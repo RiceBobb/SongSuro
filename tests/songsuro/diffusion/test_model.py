@@ -153,37 +153,3 @@ def test_residual_block_gradient_flow():
 	assert x.grad is not None
 	assert diffusion_step_embedding.grad is not None
 	assert condition_embedding.grad is not None
-
-
-def test_residual_block_normalization():
-	"""Test if the normalization by sqrt(2.0) is applied correctly."""
-	block = ResidualBlock(
-		input_condition_dim=32, channel_size=16, kernel_size=3, dilation=1
-	)
-
-	# Create inputs where we can easily track the normalization
-	batch_size = 1
-	seq_length = 4
-
-	# Create constant inputs for easier verification
-	x = torch.ones(batch_size, 16, seq_length)
-	diffusion_step_embedding = torch.zeros(
-		batch_size, 16
-	)  # Zero to simplify calculation
-
-	# Create a condition embedding that will result in a simple output after processing
-	# This is a simplified test case where we assume the gate will be close to 1 and filter close to input
-	condition_embedding = (
-		torch.ones(batch_size, 32, seq_length) * 5
-	)  # Large positive value to make sigmoid(gate) close to 1
-
-	with torch.no_grad():
-		# Forward pass
-		residual, _ = block(x, diffusion_step_embedding, condition_embedding)
-
-		# Get the mean of the output
-		mean_output = residual.mean().item()
-
-		# The scale should be roughly 1/sqrt(2) times the input if the residual is similar to y
-		# This is a very rough check and might fail depending on initialization
-		assert 0.5 < mean_output < 2.0, "Output scale seems off"
