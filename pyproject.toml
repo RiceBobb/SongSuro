@@ -27,7 +27,6 @@ dependencies = [
     "setuptools-scm>=8.2.0",
     "sounddevice>=0.5.1",
     "soundfile>=0.13.1",
-    "tensorflow>=2.19.0",
     "torch>=2.6.0",
     "tqdm>=4.67.1",
     "vector-quantize-pytorch>=1.22.4",
