@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-import vconv
-import netmisc
+from .vconv import VirtualConv, output_offsets
+from .netmisc import xavier_init
 from sys import stderr
 
 
@@ -26,7 +26,7 @@ class ConvReLURes(nn.Module):
 		self.name = name
 		# self.bn = nn.BatchNorm1d(n_out_chan)
 
-		self.vc = vconv.VirtualConv(
+		self.vc = VirtualConv(
 			filter_info=filter_sz, stride=stride, parent=parent_vc, name=name
 		)
 
@@ -37,9 +37,9 @@ class ConvReLURes(nn.Module):
 					"Stride must be 1 for residually connected convolution", file=stderr
 				)
 				raise ValueError
-			l_off, r_off = vconv.output_offsets(self.vc, self.vc)
+			l_off, r_off = output_offsets(self.vc, self.vc)
 			self.register_buffer("residual_offsets", torch.tensor([l_off, r_off]))
-		netmisc.xavier_init(self.conv)
+		xavier_init(self.conv)
 
 	def forward(self, x):
 		"""
