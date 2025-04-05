@@ -17,6 +17,7 @@ class TestGenerator:
 		h.resblock_dilation_sizes = [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
 		h.upsample_initial_channel = 512
 		h.resblock = "1"
+		h.input_channels = 128  # Important: Set decoder input channels to 128
 		return h
 
 	@pytest.fixture
@@ -47,7 +48,7 @@ class TestGenerator:
 
 	def test_forward(self, generator):
 		# Create input tensor (batch size 2, channels 80, time steps 100)
-		x = torch.randn(2, 80, 100)
+		x = torch.randn(2, 128, 100)
 
 		# Run forward pass
 		output = generator(x)
@@ -88,7 +89,7 @@ class TestGenerator:
 		generator = Generator(config)
 
 		# Create input tensor
-		x = torch.randn(2, 80, 100)
+		x = torch.randn(2, 128, 100)
 
 		# Run forward pass
 		output = generator(x)
