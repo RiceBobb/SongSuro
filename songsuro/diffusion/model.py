@@ -1,5 +1,7 @@
 # This code is originated by Diffwave, copyright 2020 LMNT, Inc.
 # I modified the code, and original code is under the Apache 2.0 License
+from math import sqrt
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -68,13 +70,49 @@ class ResidualBlock(nn.Module):
 	def __init__(
 		self,
 		input_condition_dim: int,
-		dilated_convolution_layers: int = 20,
-		residual_channels: int = 256,
+		channel_size: int = 256,
 		kernel_size: int = 3,
 		dilation: int = 1,
 	):
 		super().__init__()
 
-		if input_condition_dim % 2 != 0:
-			raise ValueError("input_condition_dim must be divisible by 2")
-		self.channel = input_condition_dim // 2
+		self.channel_size = channel_size
+		self.conditioner_projection = Linear(
+			in_features=input_condition_dim, out_features=channel_size * 2
+		)  # (B, 2C, L)
+		self.dilated_conv = Conv1d(
+			channel_size,
+			channel_size * 2,
+			kernel_size,
+			dilation=dilation,
+			padding=dilation,
+		)  # (B, 2C, L)
+		self.output_projection = Conv1d(channel_size, channel_size * 2, kernel_size=1)
+
+	def forward(self, x, diffusion_step_embedding, condition_embedding):
+		"""
+		Forward step out of the single ResidualBlock of the denoiser.
+
+		:param x: Input to the Residual Block which is concatenation of the previous step result and prior estimator result.
+		:param diffusion_step_embedding: t-th step embedding from the DiffusionEmbedding class.
+		:param condition_embedding: condition embedding from the conditioner Encoder.
+			Shape is (B, input_condition_dim, L).
+		:return:
+		"""
+		diffusion_step_embedding = diffusion_step_embedding.unsqueeze(
+			-1
+		)  # Regulation of diffusion_step_embedding
+		y = x + diffusion_step_embedding  # (B, C, L)
+		after_dil_conv = self.dilated_conv(y)  # (B, 2C, L)
+
+		# condition path
+		condition_embedding = condition_embedding.transpose(1, 2)
+		condition = self.conditioner_projection(condition_embedding)
+		condition = condition.transpose(1, 2)
+		condition_residual = after_dil_conv + condition
+
+		gate, filter = torch.chunk(condition_residual, 2, dim=1)
+		after_gate = torch.sigmoid(gate) * torch.tanh(filter)
+		after_gate = self.output_projection(after_gate)
+		residual, skip = torch.chunk(after_gate, 2, dim=1)
+		return (residual + y) / sqrt(2.0), skip  # (B, C, L), (B, C, L)
