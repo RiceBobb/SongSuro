@@ -33,10 +33,18 @@ class TestDiffusionEmbedding:
 		assert output.shape == torch.Size([1, 512])
 		assert torch.isfinite(output).all()
 
+		output = embedding_model(torch.tensor([10, 4, 5, 8]))
+		assert output.shape == torch.Size([4, 512])
+		assert torch.isfinite(output).all()
+
 	def test_forward_float_input(self, embedding_model):
 		# Test forward pass with float input
 		output = embedding_model(torch.tensor([0.02]))
 		assert output.shape == torch.Size([1, 512])
+		assert torch.isfinite(output).all()
+
+		output = embedding_model(torch.tensor([0.1, 2.5, 10.9, 3.78]))
+		assert output.shape == torch.Size([4, 512])
 		assert torch.isfinite(output).all()
 
 	def test_lerp_embedding(self, embedding_model):
