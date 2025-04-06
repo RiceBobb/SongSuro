@@ -1,3 +1,10 @@
+# -----------------------------------------------------------
+# This code is adapted from HiFi-GAN: https://github.com/jik876/hifi-gan
+# Original repository: https://github.com/jik876/hifi-gan
+# License: MIT License
+# -----------------------------------------------------------
+
+
 import torch
 import torch.nn.functional as F
 import torch.nn as nn

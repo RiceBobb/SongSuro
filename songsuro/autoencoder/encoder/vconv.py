@@ -1,6 +1,7 @@
-"""
-See doc/vconv_notes.txt
-"""
+# -----------------------------------------------------------
+# This code is adapted from ae-wavenet: https://github.com/hrbigelow/ae-wavenet
+# Original repository: https://github.com/hrbigelow/ae-wavenet
+# -----------------------------------------------------------
 
 
 class GridRange(object):
