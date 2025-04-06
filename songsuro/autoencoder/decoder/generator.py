@@ -20,30 +20,11 @@ class ResBlock1(torch.nn.Module):
 						channels,
 						kernel_size,
 						1,
-						dilation=dilation[0],
-						padding=get_padding(kernel_size, dilation[0]),
+						dilation=d,
+						padding=get_padding(kernel_size, d),
 					)
-				),
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=dilation[1],
-						padding=get_padding(kernel_size, dilation[1]),
-					)
-				),
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=dilation[2],
-						padding=get_padding(kernel_size, dilation[2]),
-					)
-				),
+				)
+				for d in dilation[:3]
 			]
 		)
 		self.convs1.apply(init_weights)
@@ -59,27 +40,8 @@ class ResBlock1(torch.nn.Module):
 						dilation=1,
 						padding=get_padding(kernel_size, 1),
 					)
-				),
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=1,
-						padding=get_padding(kernel_size, 1),
-					)
-				),
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=1,
-						padding=get_padding(kernel_size, 1),
-					)
-				),
+				)
+				for _ in range(3)
 			]
 		)
 		self.convs2.apply(init_weights)
@@ -112,20 +74,11 @@ class ResBlock2(torch.nn.Module):
 						channels,
 						kernel_size,
 						1,
-						dilation=dilation[0],
-						padding=get_padding(kernel_size, dilation[0]),
+						dilation=d,
+						padding=get_padding(kernel_size, d),
 					)
-				),
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=dilation[1],
-						padding=get_padding(kernel_size, dilation[1]),
-					)
-				),
+				)
+				for d in dilation[:2]
 			]
 		)
 		self.convs.apply(init_weights)
