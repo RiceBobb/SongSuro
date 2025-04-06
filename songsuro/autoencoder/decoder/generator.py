@@ -10,7 +10,7 @@ LRELU_SLOPE = 0.1
 
 class ResBlock1(torch.nn.Module):
 	def __init__(self, h, channels, kernel_size=3, dilation=(1, 3, 5)):
-		super(ResBlock1, self).__init__()
+		super().__init__()
 		self.h = h
 		self.convs1 = nn.ModuleList(
 			[
@@ -102,7 +102,7 @@ class ResBlock1(torch.nn.Module):
 
 class ResBlock2(torch.nn.Module):
 	def __init__(self, h, channels, kernel_size=3, dilation=(1, 3)):
-		super(ResBlock2, self).__init__()
+		super().__init__()
 		self.h = h
 		self.convs = nn.ModuleList(
 			[
@@ -144,7 +144,7 @@ class ResBlock2(torch.nn.Module):
 
 class Generator(torch.nn.Module):
 	def __init__(self, h):
-		super(Generator, self).__init__()
+		super().__init__()
 		self.h = h
 		self.num_kernels = len(h.resblock_kernel_sizes)
 		self.num_upsamples = len(h.upsample_rates)

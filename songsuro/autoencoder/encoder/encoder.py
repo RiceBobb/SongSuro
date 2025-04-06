@@ -16,7 +16,7 @@ class ConvReLURes(nn.Module):
 		parent_vc=None,
 		name=None,
 	):
-		super(ConvReLURes, self).__init__()
+		super().__init__()
 		self.n_in = n_in_chan
 		self.n_out = n_out_chan
 		self.conv = nn.Conv1d(
@@ -64,7 +64,7 @@ class ConvReLURes(nn.Module):
 
 class Encoder(nn.Module):
 	def __init__(self, n_in, n_out, parent_vc):
-		super(Encoder, self).__init__()
+		super().__init__()
 
 		# the "stack"
 		stack_in_chan = [n_in, n_out, n_out, n_out, n_out, n_out, n_out, n_out, n_out]

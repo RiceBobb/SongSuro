@@ -11,7 +11,7 @@ LRELU_SLOPE = 0.1
 
 class DiscriminatorP(torch.nn.Module):
 	def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
-		super(DiscriminatorP, self).__init__()
+		super().__init__()
 		self.period = period
 		norm_f = weight_norm if not use_spectral_norm else spectral_norm
 		self.convs = nn.ModuleList(
@@ -81,7 +81,7 @@ class DiscriminatorP(torch.nn.Module):
 
 class MultiPeriodDiscriminator(torch.nn.Module):
 	def __init__(self):
-		super(MultiPeriodDiscriminator, self).__init__()
+		super().__init__()
 		self.discriminators = nn.ModuleList(
 			[
 				DiscriminatorP(2),
@@ -110,7 +110,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
 class DiscriminatorS(torch.nn.Module):
 	def __init__(self, use_spectral_norm=False):
-		super(DiscriminatorS, self).__init__()
+		super().__init__()
 		norm_f = weight_norm if not use_spectral_norm else spectral_norm
 		self.convs = nn.ModuleList(
 			[
@@ -140,7 +140,7 @@ class DiscriminatorS(torch.nn.Module):
 
 class MultiScaleDiscriminator(torch.nn.Module):
 	def __init__(self):
-		super(MultiScaleDiscriminator, self).__init__()
+		super().__init__()
 		self.discriminators = nn.ModuleList(
 			[
 				DiscriminatorS(use_spectral_norm=True),
