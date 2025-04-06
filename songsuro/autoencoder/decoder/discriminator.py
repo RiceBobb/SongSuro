@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.nn import Conv1d, AvgPool1d, Conv2d
 from torch.nn.utils import weight_norm, spectral_norm
 
-from songsuro.autoencoder.decoder.utils import get_padding
+from songsuro.utils.util import get_padding
 
 LRELU_SLOPE = 0.1
 
