@@ -1,4 +1,9 @@
-# Miscellaneous functions for the network
+# -----------------------------------------------------------
+# This code is adapted from ae-wavenet: https://github.com/hrbigelow/ae-wavenet
+# Original repository: https://github.com/hrbigelow/ae-wavenet
+# -----------------------------------------------------------
+
+
 import torch
 from torch import nn
 from sys import stderr

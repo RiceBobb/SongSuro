@@ -1,16 +1,23 @@
+# -----------------------------------------------------------
+# This code is adapted from HiFi-GAN: https://github.com/jik876/hifi-gan
+# Original repository: https://github.com/jik876/hifi-gan
+# License: MIT License
+# -----------------------------------------------------------
+
+
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from torch.nn import Conv1d, ConvTranspose1d
 from torch.nn.utils import weight_norm, remove_weight_norm
-from songsuro.autoencoder.decoder.utils import get_padding, init_weights
+from songsuro.utils.util import get_padding, init_weights
 
 LRELU_SLOPE = 0.1
 
 
 class ResBlock1(torch.nn.Module):
 	def __init__(self, h, channels, kernel_size=3, dilation=(1, 3, 5)):
-		super(ResBlock1, self).__init__()
+		super().__init__()
 		self.h = h
 		self.convs1 = nn.ModuleList(
 			[
@@ -20,30 +27,11 @@ class ResBlock1(torch.nn.Module):
 						channels,
 						kernel_size,
 						1,
-						dilation=dilation[0],
-						padding=get_padding(kernel_size, dilation[0]),
+						dilation=d,
+						padding=get_padding(kernel_size, d),
 					)
-				),
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=dilation[1],
-						padding=get_padding(kernel_size, dilation[1]),
-					)
-				),
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=dilation[2],
-						padding=get_padding(kernel_size, dilation[2]),
-					)
-				),
+				)
+				for d in dilation[:3]
 			]
 		)
 		self.convs1.apply(init_weights)
@@ -59,27 +47,8 @@ class ResBlock1(torch.nn.Module):
 						dilation=1,
 						padding=get_padding(kernel_size, 1),
 					)
-				),
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=1,
-						padding=get_padding(kernel_size, 1),
-					)
-				),
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=1,
-						padding=get_padding(kernel_size, 1),
-					)
-				),
+				)
+				for _ in range(3)
 			]
 		)
 		self.convs2.apply(init_weights)
@@ -102,7 +71,7 @@ class ResBlock1(torch.nn.Module):
 
 class ResBlock2(torch.nn.Module):
 	def __init__(self, h, channels, kernel_size=3, dilation=(1, 3)):
-		super(ResBlock2, self).__init__()
+		super().__init__()
 		self.h = h
 		self.convs = nn.ModuleList(
 			[
@@ -112,20 +81,11 @@ class ResBlock2(torch.nn.Module):
 						channels,
 						kernel_size,
 						1,
-						dilation=dilation[0],
-						padding=get_padding(kernel_size, dilation[0]),
+						dilation=d,
+						padding=get_padding(kernel_size, d),
 					)
-				),
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=dilation[1],
-						padding=get_padding(kernel_size, dilation[1]),
-					)
-				),
+				)
+				for d in dilation[:2]
 			]
 		)
 		self.convs.apply(init_weights)
@@ -144,7 +104,7 @@ class ResBlock2(torch.nn.Module):
 
 class Generator(torch.nn.Module):
 	def __init__(self, h):
-		super(Generator, self).__init__()
+		super().__init__()
 		self.h = h
 		self.num_kernels = len(h.resblock_kernel_sizes)
 		self.num_upsamples = len(h.upsample_rates)

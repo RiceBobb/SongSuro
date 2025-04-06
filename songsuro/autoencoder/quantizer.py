@@ -7,7 +7,7 @@ class ResidualVectorQuantizer(nn.Module):
 	def __init__(
 		self, input_dim=128, num_quantizers=30, codebook_size=1024, codebook_dim=128
 	):
-		super(ResidualVectorQuantizer, self).__init__()
+		super().__init__()
 		self.rvq = ResidualVQ(
 			dim=input_dim,
 			num_quantizers=num_quantizers,
