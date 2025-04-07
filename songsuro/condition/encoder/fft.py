@@ -3,10 +3,35 @@ Code from  Relative positional encoding and FFT block
 Lyrics encoder and enhanced condition encoders.
 
 Relative position encoder github: https://github.com/evelinehong/Transformer_Relative_Position_PyTorch/blob/master/relative_position.py
-FastSpeech2 transformer github: https://github.com/ming024/FastSpeech2/blob/master/transformer/Models.py
+FastSpeech2 transformer github: https://github.com/ming024/FastSpeech2/blob/master/transformer/
 """
 
 import torch.nn as nn
+from songsuro.modules.fft.relative_pos_encoding import RelativePosition
+from songsuro.modules.fft.layers import FFTBlock
+
+
+# TODO: Use config yaml file later
+class FFTransformerBlock(nn.Module):
+	def __init__(self, d_model=192, d_k=64, d_v=64, n_head=2, d_inner=768):
+		super().__init__()
+		max_relative_position = 4
+
+		self.ff_block = FFTBlock(
+			d_model=d_model,
+			d_k=d_k,
+			d_v=d_v,
+			d_inner=d_inner,
+			n_head=n_head,
+			kernel_size=1,
+		)
+		self.relative_position = RelativePosition(d_model, max_relative_position)
+
+	def forward(self, x, mask=None):
+		if mask is not None:
+			mask = mask.unsqueeze(1).unsqueeze(2)
+		x, _ = self.ff_block(x, mask=mask)
+		return x
 
 
 class LyricsEncoder(nn.Module):
