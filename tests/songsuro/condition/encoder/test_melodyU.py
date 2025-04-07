@@ -7,7 +7,9 @@ import pytest
 from songsuro.condition.encoder.melodyU import preprocess_f0
 
 
-root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent.parent
+root_dir = pathlib.PurePath(
+	os.path.dirname(os.path.realpath(__file__))
+).parent.parent.parent
 resource_dir = os.path.join(root_dir, "resources")
 
 
