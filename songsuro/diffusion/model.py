@@ -144,20 +144,19 @@ class Denoiser(nn.Module):
 			]
 		)
 		self.skip_projection = nn.Linear(channel_size, channel_size)
-		self.output_projection = nn.Linear(channel_size, channel_size // 2)
+		self.output_projection = nn.Linear(channel_size, channel_size)
 
-	def forward(self, previous_step, diffusion_step, prior, condition_embedding):
+	def forward(self, x, diffusion_step, condition_embedding):
 		"""
 		Forward pass of the denoiser in Latent Diffusion Model.
 
-		:param previous_step: Shape is (B, c/2, L)
+		:param x: Shape is (B, c, L)
+			Previous step or X_T with prior
 		:param diffusion_step: Int or float. The step number of the diffusion step.
-		:param prior: Shape is (B, c/2, L)
 		:param condition_embedding: The condition embedding from the conditioner Encoder.
 			Shape is (B, input_condition_dim, L).
-		:return:
+		:return: (B, c, L)
 		"""
-		x = torch.concat((previous_step, prior), dim=1)  # (B, C, L)
 		step_embedding = self.step_embedding(diffusion_step)  # (B, C)
 
 		skip = None
