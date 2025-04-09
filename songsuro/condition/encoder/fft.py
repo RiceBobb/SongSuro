@@ -18,12 +18,12 @@ class FFTransformerBlock(nn.Module):
 		max_relative_position = 4
 
 		self.ff_block = FFTBlock(
-			d_model=d_model,
+			hidden_size_d_model=d_model,
 			d_k=d_k,
 			d_v=d_v,
 			d_inner=d_inner,
 			n_head=n_head,
-			kernel_size=1,
+			kernel_size=9,
 		)
 		self.relative_position = RelativePosition(d_model, max_relative_position)
 
@@ -35,6 +35,10 @@ class FFTransformerBlock(nn.Module):
 
 
 class LyricsEncoder(nn.Module):
+	"""
+	Block is 4 in HiddenSinger. - n_layers = 4
+	"""
+
 	def __init__(self, vocab_size, d_model=192, n_layers=4):
 		super().__init__()
 		self.embed = nn.Embedding(vocab_size, d_model)

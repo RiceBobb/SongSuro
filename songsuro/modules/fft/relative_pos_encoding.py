@@ -5,10 +5,10 @@ import torch.nn as nn
 class RelativePosition(nn.Module):
 	"""
 	Relative position encoding in GLowTTS Hyerperparameters
+	- num_units : 192 (Same as d_model. Vector representation dimension)
 	- max_relative_position : 4 (Multi-head attention max relative position)
 	"""
 
-	# TODO: num_units는 뭘까?
 	def __init__(self, num_units, max_relative_position=4):
 		super().__init__()
 		self.num_units = num_units
@@ -41,7 +41,7 @@ class MultiHeadAttentionLayer(nn.Module):
 		self.hid_dim = hid_dim
 		self.n_heads = n_heads
 		self.head_dim = hid_dim // n_heads
-		self.max_relative_position = 2
+		self.max_relative_position = 4
 
 		self.relative_position_k = RelativePosition(
 			self.head_dim, self.max_relative_position
