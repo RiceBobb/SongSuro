@@ -4,8 +4,10 @@ import numpy as np
 import torch
 from torch import nn
 
+from songsuro.autoencoder.decoder.generator import Generator
 from songsuro.autoencoder.encoder.encoder import Encoder
 from songsuro.autoencoder.encoder.vconv import VirtualConv
+from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
 from songsuro.condition.model import ConditionalEncoder
 from songsuro.diffusion.model import Denoiser
 
@@ -25,11 +27,13 @@ class Songsuro(nn.Module):
 		self.device = device
 		parent_vc = VirtualConv(filter_info=3, stride=1, name="parent")
 		self.encoder = Encoder(n_mels, latent_dim, parent_vc)
+		self.rvq = ResidualVectorQuantizer(latent_dim)
+		self.decoder = Generator(latent_dim)
 		self.max_step_size = len(noise_schedule)
-		self.noise_schedule = noise_schedule
+		self.noise_schedule = noise_schedule  # beta_t
 		self.noise_level = torch.Tensor(
 			np.cumprod(1 - noise_schedule).astype(np.float32)
-		).to(device)
+		).to(device)  # alpha_t_bar
 
 		self.denoiser = Denoiser(
 			self.max_step_size,
@@ -84,6 +88,9 @@ class Songsuro(nn.Module):
 
 	# TODO: Contrastive loss must be implemented in train.py
 
+	def load_model_weights(self):
+		pass
+
 	def sample(self, gt_spectrogram, lyrics):
 		"""
 		Inference of the Songsuro model.
@@ -91,4 +98,37 @@ class Songsuro(nn.Module):
 		:return: The generated waveform.
 		"""
 		with torch.no_grad():
-			_ = self.encoder(gt_spectrogram)
+			latent = self.encoder(gt_spectrogram)
+			# The latent is from the autoencoder encoder
+			condition_embedding, prior = self.conditional_encoder(
+				lyrics, gt_spectrogram
+			)
+			x = prior + torch.randn_like(
+				latent, device=self.device
+			)  # x_T # start with prior
+
+			# Reverse process
+			for step in range(len(self.noise_schedule) - 1, -1, -1):
+				if step > 0:
+					z = torch.randn_like(latent)
+					sigma = (
+						(1.0 - self.noise_level[step - 1])
+						/ (1.0 - self.noise_level[step])
+						* self.noise_schedule[step]
+					) ** 0.5
+				else:
+					z = torch.zeros_like(latent)
+					sigma = 0
+
+				c1 = 1 / ((1 - self.noise_schedule[step]) ** 0.5)
+				c2 = self.noise_schedule[step] / ((1 - self.noise_level[step]) ** 0.5)
+				x = (
+					c1 * (x - c2 * self.denoiser(x, step, condition_embedding))
+					+ z * sigma
+				)
+				x = torch.clamp(x, -1.0, 1.0)
+
+			# Now x is generated latent
+			quantized, _ = self.rvq(x)
+			decoded_result = self.decoder(quantized)
+			return decoded_result
