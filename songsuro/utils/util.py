@@ -35,9 +35,9 @@ def temporal_avg_pool(x, mask=None):
 	Ignores padded/masked elements using boolean mask.
 
 	Note:
-		- Designed for variable-length sequences where padding needs to be ignored
-		- Maintains original feature dimension while reducing temporal dimension to 1
-		- Handles zero-length sequences gracefully through PyTorch's division operation
+	    - Designed for variable-length sequences where padding needs to be ignored
+	    - Maintains original feature dimension while reducing temporal dimension to 1
+	    - Handles zero-length sequences gracefully through PyTorch's division operation
 
 	:param x: Input sequence tensor of shape (batch_size, seq_len, features)
 	:param mask: Boolean mask tensor of shape (batch_size, seq_len, features) where True indicates masked/padded positions
@@ -63,3 +63,21 @@ def init_weights(m, mean=0.0, std=0.01):
 
 def get_padding(kernel_size, dilation=1):
 	return int((kernel_size * dilation - dilation) / 2)
+
+
+def clip_grad_value_(parameters, clip_value, norm_type=2):
+	if isinstance(parameters, torch.Tensor):
+		parameters = [parameters]
+	parameters = list(filter(lambda p: p.grad is not None, parameters))
+	norm_type = float(norm_type)
+	if clip_value is not None:
+		clip_value = float(clip_value)
+
+	total_norm = 0
+	for p in parameters:
+		param_norm = p.grad.data.norm(norm_type)
+		total_norm += param_norm.item() ** norm_type
+		if clip_value is not None:
+			p.grad.data.clamp_(min=-clip_value, max=clip_value)
+	total_norm = total_norm ** (1.0 / norm_type)
+	return total_norm
