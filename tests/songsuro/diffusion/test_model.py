@@ -166,13 +166,10 @@ def test_denoiser_forward(denoiser, batch_size):
 	channel_size = 256
 	diffusion_step = torch.Tensor([40])
 
-	previous_step = torch.randn(batch_size, channel_size // 2, seq_length)
-	prior = torch.randn(
-		batch_size, channel_size // 2, seq_length
-	)  # Need to check because I don't know well about prior
+	previous_step = torch.randn(batch_size, channel_size, seq_length)
 	condition_embedding = torch.randn(batch_size, 192, seq_length)
 
-	output = denoiser(previous_step, diffusion_step, prior, condition_embedding)
+	output = denoiser(previous_step, diffusion_step, condition_embedding)
 
-	assert output.shape == (batch_size, channel_size // 2, seq_length)
+	assert output.shape == (batch_size, channel_size, seq_length)
 	assert torch.isfinite(output).all()
