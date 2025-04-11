@@ -7,7 +7,8 @@ from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
 class Autoencoder(nn.Module):
 	def __init__(
 		self,
-		# encoder (instance 만들 때, mel_channels를 계산해서 넣어줘야 함)
+		# encoder
+		# When creating an instance, we'll need to calculate mel_channels and put it in
 		encoder_in_channels=128,
 		encoder_out_channels=80,
 		# rvq
