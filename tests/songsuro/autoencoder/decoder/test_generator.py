@@ -21,12 +21,11 @@ class TestGenerator:
 		return h
 
 	@pytest.fixture
-	def generator(self, config):
-		return Generator(config)
+	def generator(self):
+		return Generator()
 
 	def test_initialization(self, generator, config):
 		# Test initialization
-		assert generator.h == config
 		assert generator.num_kernels == len(config.resblock_kernel_sizes)
 		assert generator.num_upsamples == len(config.upsample_rates)
 		assert len(generator.ups) == generator.num_upsamples
@@ -60,7 +59,7 @@ class TestGenerator:
 
 		# Check output length based on upsampling rates
 		expected_length = 100
-		for rate in generator.h.upsample_rates:
+		for rate in generator.upsample_rates:
 			expected_length *= rate
 		assert output.shape[2] == expected_length
 
