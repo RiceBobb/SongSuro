@@ -103,21 +103,20 @@ class ResBlock2(torch.nn.Module):
 class Generator(torch.nn.Module):
 	def __init__(
 		self,
+		generator_input_channels=80,
 		resblock="1",
 		resblock_kernel_sizes=[3, 7, 11],
 		upsample_rates=[8, 8, 2, 2],
 		upsample_initial_channel=512,
 		upsample_kernel_sizes=[16, 16, 4, 4],
-		generator_input_channels=128,
 		resblock_dilation_sizes=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
 	):
 		super().__init__()
 		self.num_kernels = len(resblock_kernel_sizes)
 		self.num_upsamples = len(upsample_rates)
 		self.upsample_rates = upsample_rates
-		input_channels = generator_input_channels
 		self.conv_pre = weight_norm(
-			Conv1d(input_channels, upsample_initial_channel, 7, 1, padding=3)
+			Conv1d(generator_input_channels, upsample_initial_channel, 7, 1, padding=3)
 		)
 		resblock = ResBlock1 if resblock == "1" else ResBlock2
 

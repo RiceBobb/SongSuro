@@ -5,28 +5,67 @@ from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
 
 
 class Autoencoder(nn.Module):
-	def __init__(self, hps):
+	def __init__(
+		self,
+		dataset,
+		encoder_out_channels=80,
+		# rvq
+		num_quantizers=8,
+		codebook_size=1024,
+		codebook_dim=128,
+		# generator
+		resblock="1",
+		resblock_kernel_sizes=[3, 7, 11],
+		upsample_rates=[8, 8, 2, 2],
+		upsample_initial_channel=512,
+		upsample_kernel_sizes=[16, 16, 4, 4],
+		resblock_dilation_sizes=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
+	):
 		super().__init__()
-		self.hps = hps
+		self.init_args = {
+			"n_mel_chan": dataset.num_mel_chan(),
+			"encoder_out_channels": encoder_out_channels,
+			"num_quantizers": num_quantizers,
+			"codebook_size": codebook_size,
+			"codebook_dim": codebook_dim,
+			"resblock": resblock,
+			"resblock_kernel_sizes": resblock_kernel_sizes,
+			"upsample_rates": upsample_rates,
+			"upsample_initial_channel": upsample_initial_channel,
+			"upsample_kernel_sizes": upsample_kernel_sizes,
+			"resblock_dilation_sizes": resblock_dilation_sizes,
+		}
 
-		# 인코더 초기화
+		self._initialize()
+
+	def _initialize(self):
+		# Encoder
+		encoder_out_channels = self.init_args["encoder_out_channels"]
+
 		self.encoder = Encoder(
-			n_in=getattr(hps.model, "encoder_in_channels", 1),  # 기본값 1
-			n_out=getattr(hps.model, "encoder_out_channels", 128),  # 기본값 128
+			n_in=self.init_args["n_mel_chan"],
+			n_out=encoder_out_channels,
 			parent_vc=None,
 		)
 
-		# 양자화기 초기화
+		# RVQ(Residual Vector Quantizer)
 		self.quantizer = ResidualVectorQuantizer(
-			input_dim=getattr(hps.model, "encoder_out_channels", 128),
-			num_quantizers=getattr(hps.model, "num_quantizers", 8),
-			codebook_size=getattr(hps.model, "codebook_size", 1024),
-			codebook_dim=getattr(hps.model, "codebook_dim", 128),
+			input_dim=encoder_out_channels,
+			num_quantizers=self.init_args["num_quantizers"],
+			codebook_size=self.init_args["codebook_size"],
+			codebook_dim=self.init_args["codebook_dim"],
 		)
 
-		# 디코더(Generator) 초기화
-		# Generator 클래스는 h 객체를 받으므로 hps.model을 전달
-		self.decoder = Generator(hps.model)
+		# Generator (= Decoder)
+		self.decoder = Generator(
+			generator_input_channels=encoder_out_channels,
+			resblock=self.init_args["resblock"],
+			resblock_kernel_sizes=self.init_args["resblock_kernel_sizes"],
+			upsample_rates=self.init_args["upsample_rates"],
+			upsample_initial_channel=self.init_args["upsample_initial_channel"],
+			upsample_kernel_sizes=self.init_args["upsample_kernel_sizes"],
+			resblock_dilation_sizes=self.init_args["resblock_dilation_sizes"],
+		)
 
 	def forward(self, x):
 		encoded = self.encoder(x)
