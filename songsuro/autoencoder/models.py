@@ -7,7 +7,8 @@ from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
 class Autoencoder(nn.Module):
 	def __init__(
 		self,
-		dataset,
+		# encoder (instance 만들 때, mel_channels를 계산해서 넣어줘야 함)
+		encoder_in_channels=128,
 		encoder_out_channels=80,
 		# rvq
 		num_quantizers=8,
@@ -23,7 +24,7 @@ class Autoencoder(nn.Module):
 	):
 		super().__init__()
 		self.init_args = {
-			"n_mel_chan": dataset.num_mel_chan(),
+			"encoder_in_channels": encoder_in_channels,
 			"encoder_out_channels": encoder_out_channels,
 			"num_quantizers": num_quantizers,
 			"codebook_size": codebook_size,
@@ -43,7 +44,7 @@ class Autoencoder(nn.Module):
 		encoder_out_channels = self.init_args["encoder_out_channels"]
 
 		self.encoder = Encoder(
-			n_in=self.init_args["n_mel_chan"],
+			n_in=self.init_args["encoder_in_channels"],
 			n_out=encoder_out_channels,
 			parent_vc=None,
 		)
