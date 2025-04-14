@@ -2,22 +2,19 @@ import pytest
 import torch
 
 from songsuro.condition.encoder.style import StyleEncoder, weights_init
+from songsuro.modules.TCSinger.vq import VectorQuantiser
 
 
 class TestStyleEncoder:
 	@pytest.fixture
-	def hparams(self):
-		return {
-			"hidden_size": 192,
-			"vq_ph_channel": 64,
-			"vq": "cvq",
-			"vq_ph_codebook_dim": 512,
-			"vq_ph_beta": 0.25,
-		}
-
-	@pytest.fixture
-	def model(self, hparams):
-		return StyleEncoder(hparams)
+	def model(self):
+		return StyleEncoder(
+			hidden_size=192,
+			vq_ph_channel=64,
+			vq="cvq",
+			vq_ph_codebook_dim=512,
+			vq_ph_beta=0.25,
+		)
 
 	@pytest.fixture
 	def mel_input(self):
@@ -90,14 +87,15 @@ class TestStyleEncoder:
 		assert not torch.allclose(weights_before, conv.weight)
 		assert torch.all(conv.bias == 0)
 
-	def test_encoder_initialization(self, hparams):
-		# Test that the encoder initializes correctly
-		encoder = StyleEncoder(hparams)
-		assert encoder.hidden_size == hparams["hidden_size"]
-		assert encoder.vq_ph_channel == hparams["vq_ph_channel"]
-		assert isinstance(encoder.ph_conv_in, torch.nn.Conv1d)
-		assert isinstance(encoder.ph_encoder, torch.nn.Module)
-		assert isinstance(encoder.ph_postnet, torch.nn.Module)
+	def test_encoder_initialization(self, model):
+		assert model.hidden_size == 192
+		assert model.vq_ph_channel == 64
+		assert isinstance(model.vq, VectorQuantiser)
+		assert model.vq.num_embed == 512
+		assert model.vq.beta == 0.25
+		assert isinstance(model.ph_conv_in, torch.nn.Conv1d)
+		assert isinstance(model.ph_encoder, torch.nn.Module)
+		assert isinstance(model.ph_postnet, torch.nn.Module)
 
 	def test_encode_ph_vqcode(
 		self, model, mel_input, nonpadding, mel2ph, ph_nonpadding
