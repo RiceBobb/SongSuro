@@ -3,6 +3,7 @@ Code from TCSinger (EMNLP 2024)
 https://github.com/AaronZ345/TCSinger
 """
 
+from typing import Union, Literal
 from torch import nn
 
 from songsuro.modules.commons.leftpad_conv import ConvBlocks as LeftPadConvBlocks
@@ -26,6 +27,7 @@ class StyleEncoder(nn.Module):
 		self,
 		hidden_size: int,
 		vq_ph_channel: int = 64,
+		vq: Union[Literal["ema"], Literal["cvq"]] = "cvq",
 		vq_ph_codebook_dim: int = 512,
 		vq_ph_beta: float = 0.25,
 	):
@@ -55,9 +57,9 @@ class StyleEncoder(nn.Module):
 		self.ph_latents_proj_in = nn.Conv1d(
 			self.hidden_size, self.vq_ph_channel, 1
 		)  # Linear Projection
-		if self.hparams["vq"] == "ema":
+		if vq == "ema":
 			self.vq = VQEmbeddingEMA(vq_ph_codebook_dim, self.vq_ph_channel)
-		elif self.hparams["vq"] == "cvq":
+		elif vq == "cvq":
 			self.vq = VectorQuantiser(
 				vq_ph_codebook_dim,
 				self.vq_ph_channel,
