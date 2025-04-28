@@ -69,7 +69,7 @@ class Songsuro(nn.Module):
 			condition_embedding, prior = self.conditional_encoder(
 				lyrics, gt_spectrogram
 			)
-			# TODO: Implement prior loss
+			prior_loss = nn.CrossEntropyLoss()(latent, prior)
 
 			noise_scale = self.noise_level[step_idx].unsqueeze(1)
 			noise_scale_sqrt = noise_scale**0.5
@@ -82,9 +82,11 @@ class Songsuro(nn.Module):
 			)  # x_t
 
 			predicted = self.denoiser(noisy_latent, step_idx, condition_embedding)
-			diff_loss = nn.MSELoss()(noise, predicted.squeeze(1))
+			diff_loss = nn.MSELoss()(
+				noise, predicted.squeeze(1)
+			)  # diffusion loss (denoise loss)
 
-		return diff_loss
+		return diff_loss, prior_loss
 
 	# TODO: Contrastive loss must be implemented in train.py
 
