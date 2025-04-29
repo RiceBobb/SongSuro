@@ -88,9 +88,6 @@ class Songsuro(nn.Module):
 
 		return diff_loss, prior_loss
 
-	def load_model_weights(self):
-		pass
-
 	def sample(self, gt_spectrogram, lyrics):
 		"""
 		Inference of the Songsuro model.
