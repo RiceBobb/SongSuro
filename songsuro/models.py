@@ -26,9 +26,9 @@ class Songsuro(nn.Module):
 		super().__init__()
 		self.device = device
 		parent_vc = VirtualConv(filter_info=3, stride=1, name="parent")
-		self.encoder = Encoder(n_mels, latent_dim, parent_vc)
-		self.rvq = ResidualVectorQuantizer(latent_dim)
-		self.decoder = Generator(latent_dim)
+		self.encoder = Encoder(n_mels, latent_dim, parent_vc).to(self.device)
+		self.rvq = ResidualVectorQuantizer(latent_dim).to(self.device)
+		self.decoder = Generator(latent_dim).to(self.device)
 		self.max_step_size = len(noise_schedule)
 		self.noise_schedule = noise_schedule  # beta_t
 		self.noise_level = torch.Tensor(
@@ -39,11 +39,11 @@ class Songsuro(nn.Module):
 			self.max_step_size,
 			channel_size=latent_dim,
 			condition_embedding_dim=condition_dim,
-		)
+		).to(self.device)
 		self.conditional_encoder = ConditionalEncoder(
 			hidden_size=condition_dim,
 			prior_output_dim=latent_dim,
-		)
+		).to(self.device)
 		self.autocast = torch.cuda.amp.autocast(enabled=kwargs.get("fp16", False))
 
 	def forward(self, gt_spectrogram, lyrics, step_idx: Optional[int] = None):
@@ -59,7 +59,7 @@ class Songsuro(nn.Module):
 		for param in self.conditional_encoder.parameters():
 			param.grad = None
 
-		with torch.no_grad():
+		with torch.no_grad():  # frozen
 			latent = self.encoder(gt_spectrogram)
 
 		if step_idx is None:
@@ -87,8 +87,6 @@ class Songsuro(nn.Module):
 			)  # diffusion loss (denoise loss)
 
 		return diff_loss, prior_loss
-
-	# TODO: Contrastive loss must be implemented in train.py
 
 	def load_model_weights(self):
 		pass
