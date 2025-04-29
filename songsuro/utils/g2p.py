@@ -1,8 +1,15 @@
+import logging
 from typing import List, Literal
 
+from tqdm import tqdm
 from transformers import T5ForConditionalGeneration, AutoTokenizer
+from g2p_en import G2p as G2pEn
+from g2pk import G2p as G2pKo
 
 from songsuro.utils.util import normalize_string, nested_map
+
+
+logger = logging.getLogger("SongSuro")
 
 
 class NeuralG2P:
@@ -17,8 +24,9 @@ class NeuralG2P:
 		if language in ["eng-us", "eng-uk"]:
 			split_words = list(map(lambda x: x.split(), normalized_texts))
 		elif language == "kor":
-			# TODO: implement ko-kiwi
+			# TODO: implement ko-kiwi - Feature/#38
 			split_words = []
+			raise NotImplementedError
 		else:
 			raise ValueError("Language must be 'eng-us', 'eng-uk' or 'kor'")
 
@@ -37,3 +45,28 @@ class NeuralG2P:
 			result.append(" ".join(phonemes))
 
 		return result
+
+
+def naive_g2p(lyrics_list: List[str], language: str = "ko") -> List[str]:
+	"""
+	Converting grapheme to phoneme using g2p library.
+
+	:param lyrics_list: The list of lyrics.
+	:param language: The language of the lyrics. Default is 'ko'.
+	"""
+	phonemes_lst = []
+
+	if language == "ko":
+		g2p = G2pKo()
+	elif language == "en":
+		g2p = G2pEn()
+	else:
+		raise ValueError(f"Unsupported language: {language}")
+
+	for lyric in tqdm(lyrics_list):
+		phonemes_lst.append(g2p(lyric))
+
+	if len(phonemes_lst) == 0:
+		logger.warning("No phonemes were generated. Please check the input lyrics.")
+
+	return phonemes_lst
