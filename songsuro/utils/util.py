@@ -74,6 +74,16 @@ def get_padding(kernel_size, dilation=1):
 	return int((kernel_size * dilation - dilation) / 2)
 
 
+def nested_map(struct, map_fn):
+	if isinstance(struct, tuple):
+		return tuple(nested_map(x, map_fn) for x in struct)
+	if isinstance(struct, list):
+		return [nested_map(x, map_fn) for x in struct]
+	if isinstance(struct, dict):
+		return {k: nested_map(v, map_fn) for k, v in struct.items()}
+	return map_fn(struct)
+
+
 def clip_grad_value(parameters, clip_value, norm_type=2):
 	if isinstance(parameters, torch.Tensor):
 		parameters = [parameters]
