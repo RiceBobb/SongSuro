@@ -47,7 +47,14 @@ def make_mel_spectrogram(
 	return mel_spectrogram
 
 
-def make_mel_spectrogram_from_audio(audio_np, n_fft, hop_length, sr, n_bins, fmax):
+def make_mel_spectrogram_from_audio(
+	audio_np,
+	n_fft: int = 2048,
+	hop_length: int = 1024,
+	sr: int = 24_000,
+	n_bins: int = 128,
+	fmax: int = 8000,
+):
 	"""
 	Generate mel spectrogram from raw audio data.
 

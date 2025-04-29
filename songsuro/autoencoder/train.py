@@ -9,6 +9,8 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from songsuro.dataset.autoencoder import AutoEncoderDataset
+
 from songsuro.autoencoder.loss import reconstruction_loss
 from songsuro.autoencoder.decoder.decoder_loss import (
 	generator_loss,
@@ -85,27 +87,27 @@ def run(
 	)
 	torch.manual_seed(seed)
 	torch.cuda.set_device(rank)
-	# TODO: Just for commit
-	# dataset_constructor = DatasetConstructor(num_replicas=n_gpus, rank=rank)
 
+	# Load dataset
+	dataset_constructor = AutoEncoderDataset(num_replicas=n_gpus, rank=rank)
 	train_loader = dataset_constructor.get_train_loader()
 	if rank == 0:
 		valid_loader = dataset_constructor.get_valid_loader()
 
-	# Autoencoder 인스턴스 생성 및 GPU로 이동
-
+	# Create an Autoencoder instance
 	net_g = Autoencoder().cuda(rank)
 
-	# HiFi-GAN 판별자 초기화
+	# Create HiFi-GAN Discriminator instance
 	mpd = MultiPeriodDiscriminator().cuda(rank)
 	msd = MultiScaleDiscriminator().cuda(rank)
 
-	# AdamW 옵티마이저 설정 (논문 요구사항에 맞게)
+	# Set AdamW Optimizer
+	# from hiddensinger paper
 	optim_g = torch.optim.AdamW(
 		net_g.parameters(),
-		lr=2e-4,  # 논문: 2 × 10^-4
-		betas=(0.8, 0.99),  # 논문: β1 = 0.8, β2 = 0.99
-		weight_decay=0.01,  # 논문: λ = 0.01
+		lr=2e-4,
+		betas=(0.8, 0.99),
+		weight_decay=0.01,
 	)
 
 	optim_d = torch.optim.AdamW(
@@ -183,19 +185,21 @@ def cpurun(
 		writer_eval = SummaryWriter(log_dir=os.path.join(save_dir, "eval"))
 	torch.manual_seed(seed)
 
-	# TODO: Just for commit
-	# dataset_constructor = DatasetConstructor(num_replicas=n_gpus, rank=rank)
+	# Load Dataset
+	dataset_constructor = AutoEncoderDataset(num_replicas=n_gpus, rank=rank)
 
 	train_loader = dataset_constructor.get_train_loader()
 	if rank == 0:
 		valid_loader = dataset_constructor.get_valid_loader()
 
+	# Create an Autoencoder instance
 	net_g = Autoencoder()
 
-	# HiFi-GAN 판별자 초기화
+	# Create HiFi-GAN Discriminator instance
 	mpd = MultiPeriodDiscriminator()
 	msd = MultiScaleDiscriminator()
 
+	# Set AdamW Optimizer
 	optim_g = torch.optim.AdamW(
 		net_g.parameters(), lr=2e-4, betas=(0.8, 0.99), weight_decay=0.01
 	)
@@ -242,7 +246,6 @@ def cpurun(
 		scheduler_d.step()
 
 
-# TODO: 여기부턴 Allign 아예 안 되어 있음
 def train_and_evaluate(
 	rank,
 	epoch,
@@ -274,55 +277,25 @@ def train_and_evaluate(
 		train_loader.sampler.set_epoch(epoch)
 	global global_step
 
+	# Set the module to training mode
 	net_g.train()
 	mpd.train()
 	msd.train()
 
-	# Lambda 가중치 정의
-	lambda_recon = lambda_recon
-	lambda_emb = lambda_emb
-	lambda_fm = lambda_fm
-
 	for batch_idx, data_dict in enumerate(train_loader):
 		# 오디오 데이터 로드
+		# loader에 mel_spectrogram이 있다고 가정
+		mel = data_dict["mel_spectrogram"]
 		wav = data_dict["wav"]
-		wav_lengths = data_dict["wav_lengths"]
-
-		if use_cuda:
-			wav = wav.cuda(rank, non_blocking=True)
-			wav_lengths = wav_lengths.cuda(rank, non_blocking=True)
-
-		# 윈도우 추출 로직 (변경 없음)
-		encoder_window_size = 128
-		decoder_window_size = 32
-		max_start_idx = wav.size(2) - encoder_window_size * hop_size
-		start_idx = (
-			torch.randint(0, max(1, max_start_idx), (1,)).item()
-			if max_start_idx > 0
-			else 0
-		)
-		wav_segment = wav[:, :, start_idx : start_idx + encoder_window_size * hop_size]
 
 		# 오토인코더 순전파 (출력 확장)
-		z, zq, y_hat, commit_loss = net_g(wav_segment)
-
-		# 디코더 실행
-		latent_start_idx = torch.randint(
-			0, max(1, zq.size(2) - decoder_window_size), (1,)
-		).item()
-		zq_segment = zq[:, :, latent_start_idx : latent_start_idx + decoder_window_size]
-		y_hat_segment = net_g.module.decode(zq_segment)
-		gt_segment = wav[
-			:,
-			:,
-			start_idx + latent_start_idx * hop_size : start_idx
-			+ (latent_start_idx + decoder_window_size) * hop_size,
-		]
+		y_hat, commit_loss = net_g(mel)
+		gt = wav
 
 		# Decoder-Discriminator 학습
-		y_df_hat_r, y_df_hat_g, _, _ = mpd(gt_segment, y_hat_segment.detach())
+		y_df_hat_r, y_df_hat_g, _, _ = mpd(gt, y_hat.detach())
 		loss_disc_f, _, _ = discriminator_loss(y_df_hat_r, y_df_hat_g)
-		y_ds_hat_r, y_ds_hat_g, _, _ = msd(gt_segment, y_hat_segment.detach())
+		y_ds_hat_r, y_ds_hat_g, _, _ = msd(gt, y_hat.detach())
 		loss_disc_s, _, _ = discriminator_loss(y_ds_hat_r, y_ds_hat_g)
 		loss_disc_all = loss_disc_s + loss_disc_f
 
@@ -332,8 +305,8 @@ def train_and_evaluate(
 		optim_d.step()
 
 		# Decoder-Generator 학습
-		y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = mpd(gt_segment, y_hat_segment)
-		y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = msd(gt_segment, y_hat_segment)
+		y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = mpd(gt, y_hat)
+		y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = msd(gt, y_hat)
 
 		# 1. 적대적 손실 (λ 없음)
 		loss_gen_f, _ = generator_loss(y_df_hat_g)
@@ -346,7 +319,7 @@ def train_and_evaluate(
 		loss_fm = loss_fm_f + loss_fm_s
 
 		# 3. 재구성 손실 (lambda_recon 적용)
-		loss_recon = reconstruction_loss(gt_segment, y_hat_segment) * lambda_recon
+		loss_recon = reconstruction_loss(gt, y_hat) * lambda_recon
 
 		# 4. 임베딩 손실 (lambda_emb 적용)
 		loss_emb = commit_loss * lambda_emb
@@ -423,60 +396,40 @@ def train_and_evaluate(
 
 
 def evaluate(
-	generator,
+	autoencoder,
 	eval_loader,
 	writer_eval,
 	# data
 	sample_rate=44100,
 ):
-	generator.eval()
+	autoencoder.eval()
 	with torch.no_grad():
 		for batch_idx, data_dict in enumerate(eval_loader):
-			# 데이터 로드
-			phone = data_dict["phone"]
-			pitchid = data_dict["pitchid"]
-			dur = data_dict["dur"]
-			slur = data_dict["slur"]
-			# just for commit
-			# mel = data_dict["mel"]
-			# f0 = data_dict["f0"]
+			mel = data_dict["mel"]
 			wav = data_dict["wav"]
-			phone_lengths = data_dict["phone_lengths"]
 			wav_lengths = data_dict["wav_lengths"]
 
 			if use_cuda:
-				phone = phone.cuda(0)
-				pitchid = pitchid.cuda(0)
-				dur = dur.cuda(0)
-				slur = slur.cuda(0)
 				wav = wav.cuda(0)
+				mel = mel.cuda(0)
 
 			# 첫 번째 샘플만 처리
-			phone = phone[:1]
-			phone_lengths = phone_lengths[:1]
-			pitchid = pitchid[:1]
-			dur = dur[:1]
-			slur = slur[:1]
 			wav = wav[:1]
-			wav_lengths = wav_lengths[:1]
+			mel = mel[:1]
 
 			# 오디오 생성 (추가된 부분)
-			y_hat, y_harm, y_noise = generator.module.infer(
-				phone, phone_lengths, pitchid, dur, slur
-			)
+			y_hat, y_harm, y_noise = autoencoder.sample(mel)
 
 			# NumPy 변환 (shape 조정)
-			wav_np = wav.squeeze(0).cpu().numpy()  # (1, 1, T) -> (T,)
 			y_hat_np = y_hat.squeeze(0).cpu().numpy()
 
 			# 특징 추출
-			y_mel = make_mel_spectrogram_from_audio(wav_np)
 			y_hat_mel = make_mel_spectrogram_from_audio(y_hat_np)
 
 			# 시각화 자료
 			image_dict = {
 				"gen/mel": plot_spectrogram_to_numpy(y_hat_mel),
-				"gt/mel": plot_spectrogram_to_numpy(y_mel),
+				"gt/mel": plot_spectrogram_to_numpy(mel),
 			}
 
 			# 오디오 텐서 (차원 복원)
@@ -495,7 +448,8 @@ def evaluate(
 			)
 			break
 
-	generator.train()
+	# 다시 training 모드로 전환
+	autoencoder.train()
 
 
 if __name__ == "__main__":

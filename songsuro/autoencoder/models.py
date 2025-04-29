@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from songsuro.autoencoder.encoder.encoder import Encoder
 from songsuro.autoencoder.decoder.generator import Generator
@@ -8,14 +9,13 @@ class Autoencoder(nn.Module):
 	def __init__(
 		self,
 		# encoder
-		# When creating an instance, we'll need to calculate mel_channels and put it in
 		encoder_in_channels=128,
 		encoder_out_channels=80,
 		# rvq
 		num_quantizers=8,
 		codebook_size=1024,
 		codebook_dim=128,
-		# generator
+		# generator (= decoder)
 		resblock="1",
 		resblock_kernel_sizes=[3, 7, 11],
 		upsample_rates=[8, 8, 2, 2],
@@ -69,11 +69,29 @@ class Autoencoder(nn.Module):
 			resblock_dilation_sizes=self.init_args["resblock_dilation_sizes"],
 		)
 
-	def forward(self, x):
-		encoded = self.encoder(x)
+	def forward(self, mel):
+		encoded = self.encoder(mel)
 		quantized, commit_loss = self.quantizer(encoded)
 		decoded = self.decoder(quantized)
 		return decoded, commit_loss
+
+	@torch.no_grad()
+	def sample(self, mel, device=None):
+		"""
+		Inference용 샘플 생성 함수.
+		Args:
+		    mel (Tensor): 입력 mel-spectrogram (batch, channel, time, freq)
+		    device (torch.device or None): 지정 시 해당 디바이스로 이동
+		Returns:
+		    decoded (Tensor): 복원된 오디오 (또는 mel)
+		"""
+		self.eval()
+		if device is not None:
+			mel = mel.to(device)
+		encoded = self.encoder(mel)
+		quantized, _ = self.quantizer(encoded)
+		decoded = self.decoder(quantized)
+		return decoded
 
 	def remove_weight_norm(self):
 		"""가중치 정규화를 제거하는 메서드 (추론 시 사용)"""
