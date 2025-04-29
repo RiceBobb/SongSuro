@@ -3,6 +3,7 @@ Code from TCSinger (EMNLP 2024)
 https://github.com/AaronZ345/TCSinger
 """
 
+from typing import Union, Literal
 from torch import nn
 
 from songsuro.modules.commons.leftpad_conv import ConvBlocks as LeftPadConvBlocks
@@ -22,11 +23,17 @@ def weights_init(m):
 
 # clustering style encoder
 class StyleEncoder(nn.Module):
-	def __init__(self, hparams):
+	def __init__(
+		self,
+		hidden_size: int,
+		vq_ph_channel: int = 64,
+		vq: Union[Literal["ema"], Literal["cvq"]] = "cvq",
+		vq_ph_codebook_dim: int = 512,
+		vq_ph_beta: float = 0.25,
+	):
 		super().__init__()
-		self.hparams = hparams
-		self.hidden_size = hparams["hidden_size"]
-		self.vq_ph_channel = hparams["vq_ph_channel"]
+		self.hidden_size = hidden_size
+		self.vq_ph_channel = vq_ph_channel
 
 		self.ph_conv_in = nn.Conv1d(80, self.hidden_size, 1)
 		self.ph_encoder = LeftPadConvBlocks(
@@ -48,21 +55,17 @@ class StyleEncoder(nn.Module):
 			num_layers=5,
 		)
 		self.ph_latents_proj_in = nn.Conv1d(
-			self.hidden_size, hparams["vq_ph_channel"], 1
+			self.hidden_size, self.vq_ph_channel, 1
 		)  # Linear Projection
-		if self.hparams["vq"] == "ema":
-			self.vq = VQEmbeddingEMA(
-				hparams["vq_ph_codebook_dim"], hparams["vq_ph_channel"]
-			)
-		elif self.hparams["vq"] == "cvq":
+		if vq == "ema":
+			self.vq = VQEmbeddingEMA(vq_ph_codebook_dim, self.vq_ph_channel)
+		elif vq == "cvq":
 			self.vq = VectorQuantiser(
-				hparams["vq_ph_codebook_dim"],
-				hparams["vq_ph_channel"],
-				hparams["vq_ph_beta"],
+				vq_ph_codebook_dim,
+				self.vq_ph_channel,
+				vq_ph_beta,
 			)
-		self.ph_latents_proj_out = nn.Conv1d(
-			hparams["vq_ph_channel"], self.hidden_size, 1
-		)
+		self.ph_latents_proj_out = nn.Conv1d(self.vq_ph_channel, self.hidden_size, 1)
 
 		self.apply(weights_init)
 

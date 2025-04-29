@@ -1,6 +1,5 @@
 import re
 import string
-
 import torch
 
 
@@ -88,3 +87,13 @@ def normalize_string(s: str) -> str:
 		return text.lower()
 
 	return white_space_fix(remove_articles(remove_punc(lower(s))))
+
+
+def nested_map(struct, map_fn):
+	if isinstance(struct, tuple):
+		return tuple(nested_map(x, map_fn) for x in struct)
+	if isinstance(struct, list):
+		return [nested_map(x, map_fn) for x in struct]
+	if isinstance(struct, dict):
+		return {k: nested_map(v, map_fn) for k, v in struct.items()}
+	return map_fn(struct)
