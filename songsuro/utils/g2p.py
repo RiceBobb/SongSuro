@@ -11,6 +11,8 @@ from songsuro.utils.util import normalize_string, nested_map
 
 logger = logging.getLogger("SongSuro")
 
+SUPPORT_LANGUAGE = Literal["eng-us", "eng-uk", "kor"]
+
 
 class NeuralG2P:
 	def __init__(self):
@@ -19,7 +21,7 @@ class NeuralG2P:
 		)
 		self.tokenizer = AutoTokenizer.from_pretrained("google/byt5-small")
 
-	def encode(self, texts: List[str], language: Literal["eng-us", "eng-uk", "kor"]):
+	def encode(self, texts: List[str], language: SUPPORT_LANGUAGE):
 		normalized_texts = list(map(normalize_string, texts))
 		if language in ["eng-us", "eng-uk"]:
 			split_words = list(map(lambda x: x.split(), normalized_texts))
