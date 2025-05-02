@@ -21,14 +21,12 @@ def test_fft_encoder_forward_shape(
 
 	default_model = FFTEncoder(
 		input_vec_size=input_vec_size,
-		out_channels=hidden_channels,
 		window_size=None,
 		block_length=None,
 	)
 
 	model = FFTEncoder(
 		input_vec_size=input_vec_size,
-		out_channels=hidden_channels,
 		hidden_channels=hidden_channels,
 		filter_channels=hidden_channels * 4,
 		n_heads=2,

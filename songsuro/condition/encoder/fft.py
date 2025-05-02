@@ -17,7 +17,6 @@ class FFTEncoder(nn.Module):
 	def __init__(
 		self,
 		input_vec_size,
-		out_channels,
 		hidden_channels=192,
 		filter_channels=768,
 		n_heads=2,
@@ -32,7 +31,6 @@ class FFTEncoder(nn.Module):
 		super().__init__()
 
 		self.input_vec_size = input_vec_size  # number of characters
-		self.out_channels = out_channels
 		self.hidden_channels = hidden_channels
 		self.filter_channels = filter_channels
 		self.n_heads = n_heads
