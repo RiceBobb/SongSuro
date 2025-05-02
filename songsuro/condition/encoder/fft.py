@@ -18,13 +18,12 @@ class FFTEncoder(nn.Module):
 		self,
 		input_vec_size,
 		out_channels,
-		hidden_channels,
-		filter_channels,
-		filter_channels_dp,
-		n_heads,
-		n_layers,
-		kernel_size,
-		p_dropout,
+		hidden_channels=192,
+		filter_channels=768,
+		n_heads=2,
+		n_layers=4,
+		kernel_size=9,
+		p_dropout=0.0,
 		window_size=None,
 		block_length=None,
 		mean_only=False,
@@ -36,7 +35,6 @@ class FFTEncoder(nn.Module):
 		self.out_channels = out_channels
 		self.hidden_channels = hidden_channels
 		self.filter_channels = filter_channels
-		self.filter_channels_dp = filter_channels_dp
 		self.n_heads = n_heads
 		self.n_layers = n_layers
 		self.kernel_size = kernel_size

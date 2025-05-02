@@ -19,12 +19,18 @@ def test_fft_encoder_forward_shape(
 		seq_len // 2, seq_len + 1, (batch_size,), dtype=torch.long
 	)
 
+	default_model = FFTEncoder(
+		input_vec_size=input_vec_size,
+		out_channels=hidden_channels,
+		window_size=None,
+		block_length=None,
+	)
+
 	model = FFTEncoder(
 		input_vec_size=input_vec_size,
 		out_channels=hidden_channels,
 		hidden_channels=hidden_channels,
 		filter_channels=hidden_channels * 4,
-		filter_channels_dp=hidden_channels * 4,
 		n_heads=2,
 		n_layers=2,
 		kernel_size=9,
@@ -35,8 +41,14 @@ def test_fft_encoder_forward_shape(
 		gin_channels=0,
 	)
 
+	default_output = default_model(x, x_lengths)
 	output = model(x, x_lengths)
-	# 출력 shape: [batch, hidden, time(seq_len)]
+
+	# Output shape: [batch, hidden, time(seq_len)]
+	assert default_output.shape[0] == batch_size
+	assert default_output.shapep[1] == hidden_channels
+	assert default_output.shape[2] == seq_len
+
 	assert output.shape[0] == batch_size
 	assert output.shape[1] == hidden_channels
 	assert output.shape[2] == seq_len
@@ -83,7 +95,7 @@ def test_fft_encoder_gradients():
 		filter_channels=hidden_channels * 4,
 		filter_channels_dp=hidden_channels * 4,
 		n_heads=2,
-		n_layers=1,
+		n_layers=4,
 		kernel_size=3,
 		p_dropout=0.0,
 		window_size=1,
