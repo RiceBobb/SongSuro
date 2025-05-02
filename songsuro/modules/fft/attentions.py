@@ -9,7 +9,7 @@ from modules import LayerNorm
 
 class Encoder(nn.Module):
 	"""
-	FFT Block in HiddenSinger, FastSpeech2, and GlowTTS.
+	FFT Block in FastSpeech2, and GlowTTS.
 	- n_layers: 4 (FFT blocks - HiddenSinger)
 	- n_heads: 2 (attention heads - HiddenSinger)
 	- hidden_channels: 192 (latent representation size - HiddenSinger)
@@ -21,6 +21,9 @@ class Encoder(nn.Module):
 	- max_relative_position : 4 (Multi-head attention max relative position)
 
 	-> d_model is hidden size. In the paper, d_model is latent representation size.
+
+	Glow-tts github: https://github.com/jaywalnut310/glow-tts
+	FastSpeech2 github: https://github.com/ming024/FastSpeech2/blob/master/transformer/
 	"""
 
 	def __init__(

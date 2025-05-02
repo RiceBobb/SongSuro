@@ -1,16 +1,16 @@
 """
-Code from  Relative positional encoding and FFT block
-Lyrics encoder and enhanced condition encoders.
+Includes code for relative positional encoding and the FFT block,
+as well as the lyrics encoder and enhanced condition encoders.
 
-Relative position encoder github: https://github.com/evelinehong/Transformer_Relative_Position_PyTorch/blob/master/relative_position.py
-FastSpeech2 transformer github: https://github.com/ming024/FastSpeech2/blob/master/transformer/
+FastSpeech2 github: https://github.com/ming024/FastSpeech2/blob/master/transformer/
+Glow-tts github: https://github.com/jaywalnut310/glow-tts
 """
 
 import math
 import torch
 from torch import nn
 
-import attentions
+from songsuro.modules.fft.attentions import Encoder
 
 
 class FFTEncoder(nn.Module):
@@ -49,7 +49,7 @@ class FFTEncoder(nn.Module):
 		self.emb = nn.Embedding(input_vec_size, hidden_channels)
 		nn.init.normal_(self.emb.weight, 0.0, hidden_channels**-0.5)
 
-		self.encoder = attentions.Encoder(
+		self.encoder = Encoder(
 			hidden_channels,
 			filter_channels,
 			n_heads,
