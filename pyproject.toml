@@ -17,6 +17,10 @@ torch = [
   { index = "pytorch-cu126", marker = "sys_platform == 'linux'" },
   { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
 ]
+torchaudio = [
+    { index = "pytorch-cu126", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
+]
 
 [project]
 name = "songsuro"
@@ -48,6 +52,7 @@ dependencies = [
     "vector-quantize-pytorch>=1.22.4",
     "wandb>=0.19.10",
     "pandas",
+    "torchaudio>=2.7.0",
 ]
 dynamic = ["version"]
 
