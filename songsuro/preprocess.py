@@ -1,20 +1,12 @@
-import logging
 import os
 
+import amfm_decompy.basic_tools as basic
+import amfm_decompy.pYAAPT as pYAAPT
 import librosa
 import numpy as np
-from librosa import feature as lf
-import amfm_decompy.pYAAPT as pYAAPT
-import amfm_decompy.basic_tools as basic
 import soundfile as sf
+from librosa import feature as lf
 from scipy import stats
-from typing import List
-from tqdm import tqdm
-
-from g2p_en import G2p as G2pEn
-from g2pk import G2p as G2pKo
-# TODO: Update the g2pc library later. (g2pc is not available)
-# from g2pc import G2pC
 
 
 def load_audio(path, sr: int = 24_000):
@@ -153,27 +145,3 @@ def mode_window_filter(arr: np.ndarray, window_size: int):
 
 
 # Preprocess F0 : extract F0 => hz_to_mel => quantize_mel_scale => hz to frame (최빈값 필터)
-
-def convert_g2p(lyrics_list: List[str], language: str = "ko") -> List[str]:
-	"""
-	Converting grapheme to phoneme using g2p library.
-
-	:param lyrics_list: The list of lyrics.
-	:param language: The language of the lyrics. Default is 'ko'.
-	"""
-	phonemes_lst = []
-
-	if language == "ko":
-		g2p = G2pKo()
-	elif language == "en":
-		g2p = G2pEn()
-	else:
-		raise ValueError(f"Unsupported language: {language}")
-
-	for lyric in tqdm(lyrics_list):
-		phonemes_lst.append(g2p(lyric))
-
-	if len(phonemes_lst) == 0:
-		logging.warning("No phonemes were generated. Please check the input lyrics.")
-
-	return phonemes_lst
