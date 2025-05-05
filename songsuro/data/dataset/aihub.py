@@ -34,6 +34,7 @@ class AIHubDataset(Dataset):
 			sample_rate=sample_rate,
 			n_fft=2048,
 			hop_length=1024,
+			f_max=8000,
 		)
 		mel_spectrogram = mel_spectrogram_transform(audio)
 
