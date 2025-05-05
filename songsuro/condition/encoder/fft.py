@@ -2,7 +2,6 @@
 Includes code for relative positional encoding and the FFT block,
 as well as the lyrics encoder and enhanced condition encoders.
 
-FastSpeech2 github: https://github.com/ming024/FastSpeech2/blob/master/transformer/
 Glow-tts github: https://github.com/jaywalnut310/glow-tts
 """
 
