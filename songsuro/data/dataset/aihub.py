@@ -1,25 +1,12 @@
 import glob
 import json
 import os
-from dataclasses import dataclass
-from typing import Dict, Any
 
 import torch
 import torchaudio
 from torch.utils.data import Dataset
 
 from songsuro.condition.encoder.melodyU import preprocess_f0
-
-
-@dataclass
-class DatasetIndex:
-	audio: torch.Tensor
-	mel_spectrogram: torch.Tensor
-	audio_filepath: str
-	label_filepath: str
-	lyrics: str
-	f0: torch.Tensor
-	metadata: Dict[str, Any]
 
 
 class AIHubDataset(Dataset):
@@ -72,15 +59,16 @@ class AIHubDataset(Dataset):
 		lyrics_list = list(map(lambda x: x["lyric"], label["notes"]))
 		lyrics = "".join(lyrics_list)
 
-		return DatasetIndex(
-			audio=audio,
-			mel_spectrogram=mel_spectrogram,
-			audio_filepath=wav_filepath,
-			label_filepath=label_path,
-			lyrics=lyrics,
-			f0=f0_tensor,
-			metadata=metadata,
-		)
+		return {
+			"audio": audio,
+			"sample_rate": sample_rate,
+			"mel_spectrogram": mel_spectrogram,
+			"audio_filepath": wav_filepath,
+			"label_filepath": label_path,
+			"lyrics": lyrics,
+			"f0": f0_tensor,
+			"metadata": metadata,
+		}
 
 	def extract_metadata_from_path(self, filepath):
 		# Get relative path from the root directory
