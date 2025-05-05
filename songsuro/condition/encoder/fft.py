@@ -16,7 +16,7 @@ from songsuro.modules.fft.attentions import Encoder
 class FFTEncoder(nn.Module):
 	def __init__(
 		self,
-		input_vec_size,
+		input_channel,
 		hidden_channels=192,
 		filter_channels=768,
 		n_heads=2,
@@ -26,11 +26,10 @@ class FFTEncoder(nn.Module):
 		window_size=None,
 		block_length=None,
 		mean_only=False,
-		gin_channels=0,
 	):
 		super().__init__()
 
-		self.input_vec_size = input_vec_size  # number of characters
+		self.input_channel = input_channel
 		self.hidden_channels = hidden_channels
 		self.filter_channels = filter_channels
 		self.n_heads = n_heads
@@ -40,9 +39,8 @@ class FFTEncoder(nn.Module):
 		self.window_size = window_size
 		self.block_length = block_length
 		self.mean_only = mean_only
-		self.gin_channels = gin_channels
 
-		self.emb = nn.Embedding(input_vec_size, hidden_channels)
+		self.emb = nn.Embedding(input_channel, hidden_channels)
 		nn.init.normal_(self.emb.weight, 0.0, hidden_channels**-0.5)
 
 		self.encoder = Encoder(
