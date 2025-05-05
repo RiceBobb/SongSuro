@@ -23,7 +23,7 @@ class TestBaseDataLoader:
 		dataloader = BaseDataLoader(dataset, batch_size=2, shuffle=False)
 
 		assert dataloader.pad_mode == "constant"
-		assert dataloader.pad_value == -1
+		assert dataloader.pad_value == 0
 		assert dataloader.batch_size == 2
 
 	def test_padding_function(self, dataset):
@@ -31,11 +31,18 @@ class TestBaseDataLoader:
 
 		# Test padding with a simple tensor
 		audio = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-		padded = dataloader._pad_audio(audio, max_length=10)
+		padded = dataloader._pad_tensor(audio, max_length=10)
 
 		assert padded.shape == (3, 10)
 		assert torch.equal(padded[:, :2], audio)
-		assert torch.all(padded[:, 2:] == -1)
+		assert torch.all(padded[:, 2:] == 0)
+
+		audio2 = torch.tensor(
+			[[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]]
+		)
+		padded = dataloader._pad_tensor(audio2, max_length=10)
+
+		assert padded.shape == (2, 3, 10)
 
 	def test_batch_creation(self, dataset):
 		dataloader = BaseDataLoader(dataset, batch_size=2, shuffle=False)
@@ -50,27 +57,41 @@ class TestBaseDataLoader:
 		assert "sample_rates" in batch1
 		assert "f0" in batch1
 		assert "metadata" in batch1
+		assert "f0_lengths" in batch1
+		assert "mel_spectrogram" in batch1
 
 		# Check shapes and values for first batch
 		assert batch1["audio"].shape[0] == 2  # batch size
-		assert batch1["audio"].shape[1] == 1  # mono audio
-		assert batch1["audio"].dim() == 3
+		assert batch1["audio"].dim() == 2
 		assert batch1["audio_lengths"].shape[0] == 2
 		assert batch1["audio_lengths"].dim() == 1
 		assert batch1["sample_rates"].shape[0] == 2
 		assert batch1["sample_rates"].dim() == 1
 
+		assert batch1["mel_spectrogram"].dim() == 3
+		assert batch1["mel_spectrogram"].shape[0] == 2
+		assert batch1["mel_spectrogram"].shape[1] == 128
+
+		assert batch1["f0"].dim() == 2
+		assert batch1["f0"].shape[0] == 2
+
 		# Verify padding in first batch
-		assert batch1["audio"][0, 0, -1] == -1 or batch1["audio"][1, 0, -1] == -1
+		assert batch1["audio"][0, -1] == 0 or batch1["audio"][1, -1] == 0
 
 		batch2 = batches[1]
 		assert batch2["audio"].shape[0] == 2  # batch size
-		assert batch2["audio"].shape[1] == 1  # mono audio
-		assert batch2["audio"].dim() == 3
+		assert batch2["audio"].dim() == 2
 		assert batch2["audio_lengths"].shape[0] == 2
 		assert batch2["audio_lengths"].dim() == 1
 		assert batch2["sample_rates"].shape[0] == 2
 		assert batch2["sample_rates"].dim() == 1
 
+		assert batch2["mel_spectrogram"].dim() == 3
+		assert batch2["mel_spectrogram"].shape[0] == 2
+		assert batch2["mel_spectrogram"].shape[1] == 128
+
+		assert batch2["f0"].dim() == 2
+		assert batch2["f0"].shape[0] == 2
+
 		# Verify padding in first batch
-		assert batch2["audio"][0, 0, -1] == -1 or batch2["audio"][1, 0, -1] == -1
+		assert batch2["audio"][0, -1] == 0 or batch2["audio"][1, -1] == 0
