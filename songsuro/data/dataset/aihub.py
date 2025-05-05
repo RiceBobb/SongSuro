@@ -57,7 +57,9 @@ class AIHubDataset(Dataset):
 		)
 		with open(label_path, "r") as f:
 			label = json.load(f)
-		lyrics_list = list(map(lambda x: x["lyric"], label["notes"]))
+		lyrics_list = list(
+			map(lambda x: x["lyric"] if x["lyric"] else " ", label["notes"])
+		)
 		lyrics = "".join(lyrics_list)
 
 		return {
