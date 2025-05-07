@@ -15,6 +15,7 @@ from songsuro.preprocess import (
 	quantize_mel_scale,
 	mode_window_filter,
 	detect_silence,
+	preprocess_f0,
 )
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
@@ -224,3 +225,11 @@ class TestAudioProcessing:
 		zero_audio = np.zeros(1000)
 		has_sound = detect_silence(zero_audio)
 		assert np.allclose(np.zeros_like(has_sound), has_sound)
+
+	def test_preprocess_f0_mode_window_filter(self, sample_audio_file):
+		frame_quantized_f0 = preprocess_f0(sample_audio_file)
+
+		assert isinstance(frame_quantized_f0, np.ndarray)
+		assert frame_quantized_f0.ndim == 1
+		assert 0 in np.unique(frame_quantized_f0)
+		assert frame_quantized_f0.shape[0] < 2000
