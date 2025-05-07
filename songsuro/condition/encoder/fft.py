@@ -24,7 +24,6 @@ class FFTEncoder(nn.Module):
 		p_dropout=0.0,
 		window_size=None,
 		block_length=None,
-		mean_only=False,
 	):
 		super().__init__()
 
@@ -37,7 +36,6 @@ class FFTEncoder(nn.Module):
 		self.p_dropout = p_dropout
 		self.window_size = window_size
 		self.block_length = block_length
-		self.mean_only = mean_only
 
 		self.emb = nn.Embedding(input_channel, hidden_channels)
 		nn.init.normal_(self.emb.weight, 0.0, hidden_channels**-0.5)
