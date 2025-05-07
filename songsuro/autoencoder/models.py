@@ -77,14 +77,6 @@ class Autoencoder(nn.Module):
 
 	@torch.no_grad()
 	def sample(self, mel, device=None):
-		"""
-		Inference용 샘플 생성 함수.
-		Args:
-		    mel (Tensor): 입력 mel-spectrogram (batch, channel, time, freq)
-		    device (torch.device or None): 지정 시 해당 디바이스로 이동
-		Returns:
-		    decoded (Tensor): 복원된 오디오 (또는 mel)
-		"""
 		self.eval()
 		if device is not None:
 			mel = mel.to(device)

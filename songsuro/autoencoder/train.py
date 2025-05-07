@@ -29,7 +29,6 @@ from songsuro.utils.util import (
 	clip_grad_value,
 	load_checkpoint,
 	summarize,
-	get_logger,
 	latest_checkpoint_path,
 	count_parameters,
 	save_checkpoint,
@@ -46,8 +45,7 @@ global_step = 0
 use_cuda = torch.cuda.is_available()
 print("use_cuda: ", use_cuda)
 
-numba_logger = logging.getLogger("numba")
-numba_logger.setLevel(logging.WARNING)
+logger = logging.getLogger("SongSuro")
 
 
 def main(
@@ -77,7 +75,6 @@ def run(
 ):
 	global global_step
 	if rank == 0:
-		logger = get_logger(save_dir)
 		check_git_hash(save_dir)
 		writer = SummaryWriter(log_dir=save_dir)
 		writer_eval = SummaryWriter(log_dir=os.path.join(save_dir, "eval"))
@@ -179,7 +176,6 @@ def cpurun(
 ):
 	global global_step
 	if rank == 0:
-		logger = get_logger(save_dir)
 		check_git_hash(save_dir)
 		writer = SummaryWriter(log_dir=save_dir)
 		writer_eval = SummaryWriter(log_dir=os.path.join(save_dir, "eval"))
