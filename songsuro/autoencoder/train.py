@@ -6,12 +6,13 @@ import logging
 import warnings
 
 import torch
+from torch.utils.data import random_split
 from torch.utils.tensorboard import SummaryWriter
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from songsuro.dataset.autoencoder import AutoEncoderDataset
+from songsuro.data.loader.base import BaseDataLoader
 
 from songsuro.autoencoder.loss import reconstruction_loss
 from songsuro.autoencoder.decoder.decoder_loss import (
@@ -40,16 +41,29 @@ print("use_cuda: ", use_cuda)
 logger = logging.getLogger("SongSuro")
 
 
-def main(port=8001):
+def main(dataset, batch_size=16, port=8001):
 	"""Assume Single Node Multi GPUs Training Only"""
 	os.environ["MASTER_ADDR"] = "localhost"
 	os.environ["MASTER_PORT"] = str(port)
 
+	# 데이터셋 분할 비율 설정
+	train_ratio = 0.8
+
+	# 데이터셋 크기 계산
+	dataset_size = len(dataset)
+	train_size = int(train_ratio * dataset_size)
+	val_size = dataset_size - train_size
+
+	# 데이터셋 분할
+	train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+
 	if torch.cuda.is_available():
 		n_gpus = torch.cuda.device_count()
-		mp.spawn(run, nprocs=n_gpus, args=(n_gpus,))
+		mp.spawn(
+			run, nprocs=n_gpus, args=(n_gpus, train_dataset, val_dataset, batch_size)
+		)
 	else:
-		cpurun(0, 1)
+		cpurun(0, 1, train_dataset, val_dataset, batch_size)
 
 
 def run(
@@ -59,7 +73,9 @@ def run(
 	seed=1234,
 	lr_decay=0.998,
 	epochs=1000,
-	dataset_constructor=None,
+	train_dataset=None,
+	valid_dataset=None,
+	batch_size=2,
 ):
 	if rank == 0:
 		check_git_hash(save_dir)
@@ -72,10 +88,8 @@ def run(
 	torch.manual_seed(seed)
 	torch.cuda.set_device(rank)
 
-	dataset_constructor = AutoEncoderDataset(num_replicas=n_gpus, rank=rank)
-	train_loader = dataset_constructor.get_train_loader()
-	if rank == 0:
-		valid_loader = dataset_constructor.get_valid_loader()
+	train_loader = BaseDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+	valid_loader = BaseDataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
 
 	net_g = Autoencoder().cuda(rank)
 	mpd = MultiPeriodDiscriminator().cuda(rank)
@@ -150,7 +164,9 @@ def cpurun(
 	seed=1234,
 	lr_decay=0.998,
 	epochs=1000,
-	dataset_constructor=None,
+	train_dataset=None,
+	valid_dataset=None,
+	batch_size=2,
 ):
 	if rank == 0:
 		check_git_hash(save_dir)
@@ -158,10 +174,8 @@ def cpurun(
 		writer_eval = SummaryWriter(log_dir=os.path.join(save_dir, "eval"))
 	torch.manual_seed(seed)
 
-	dataset_constructor = AutoEncoderDataset(num_replicas=n_gpus, rank=rank)
-	train_loader = dataset_constructor.get_train_loader()
-	if rank == 0:
-		valid_loader = dataset_constructor.get_valid_loader()
+	train_loader = BaseDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+	valid_loader = BaseDataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
 
 	net_g = Autoencoder()
 	mpd = MultiPeriodDiscriminator()
