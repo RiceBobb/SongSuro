@@ -27,7 +27,6 @@ def test_fft_encoder_forward_shape(batch_size, seq_len, input_channel, hidden_ch
 		p_dropout=0.1,
 		window_size=4,
 		block_length=None,
-		mean_only=False,
 	)
 
 	output = model(x, x_lengths)
@@ -53,7 +52,6 @@ def test_fft_encoder_padding_mask():
 		p_dropout=0.0,
 		window_size=2,
 		block_length=None,
-		mean_only=False,
 	)
 
 	output = model(x, x_lengths)
@@ -79,7 +77,6 @@ def test_fft_encoder_gradients():
 		p_dropout=0.0,
 		window_size=1,
 		block_length=None,
-		mean_only=False,
 	)
 
 	output = model(x, x_lengths)
