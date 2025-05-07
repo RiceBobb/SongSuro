@@ -2,6 +2,26 @@
 requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
+]
+torchaudio = [
+    { index = "pytorch-cu126", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
+]
+
 [project]
 name = "songsuro"
 readme = "README.md"
@@ -31,6 +51,8 @@ dependencies = [
     "tqdm>=4.67.1",
     "vector-quantize-pytorch>=1.22.4",
     "wandb>=0.19.10",
+    "torchaudio>=2.7.0",
+    "transformers>=4.51.3",
 ]
 dynamic = ["version"]
 
