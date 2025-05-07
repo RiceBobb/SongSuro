@@ -25,39 +25,27 @@ from songsuro.autoencoder.decoder.discriminator import (
 )
 
 from songsuro.preprocess import make_mel_spectrogram_from_audio
-from songsuro.utils.util import (
-	clip_grad_value,
-	load_checkpoint,
-	summarize,
-	latest_checkpoint_path,
-	count_parameters,
-	save_checkpoint,
-	check_git_hash,
-	plot_spectrogram_to_numpy,
-)
+
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 sys.path.append("../..")
 
 torch.backends.cudnn.benchmark = True
-global_step = 0
 use_cuda = torch.cuda.is_available()
 print("use_cuda: ", use_cuda)
 
 logger = logging.getLogger("SongSuro")
 
 
-def main(
-	port=8001,
-):
+def main(port=8001):
 	"""Assume Single Node Multi GPUs Training Only"""
 	os.environ["MASTER_ADDR"] = "localhost"
 	os.environ["MASTER_PORT"] = str(port)
 
 	if torch.cuda.is_available():
 		n_gpus = torch.cuda.device_count()
-		mp.spawn(run, nprocs=n_gpus, args=(n_gpus))
+		mp.spawn(run, nprocs=n_gpus, args=(n_gpus,))
 	else:
 		cpurun(0, 1)
 
@@ -65,15 +53,12 @@ def main(
 def run(
 	rank,
 	n_gpus,
-	# train
 	save_dir="/root/logdir/songsuro",
 	seed=1234,
 	lr_decay=0.998,
 	epochs=1000,
-	# just for commit
 	dataset_constructor=None,
 ):
-	global global_step
 	if rank == 0:
 		check_git_hash(save_dir)
 		writer = SummaryWriter(log_dir=save_dir)
@@ -85,28 +70,18 @@ def run(
 	torch.manual_seed(seed)
 	torch.cuda.set_device(rank)
 
-	# Load dataset
 	dataset_constructor = AutoEncoderDataset(num_replicas=n_gpus, rank=rank)
 	train_loader = dataset_constructor.get_train_loader()
 	if rank == 0:
 		valid_loader = dataset_constructor.get_valid_loader()
 
-	# Create an Autoencoder instance
 	net_g = Autoencoder().cuda(rank)
-
-	# Create HiFi-GAN Discriminator instance
 	mpd = MultiPeriodDiscriminator().cuda(rank)
 	msd = MultiScaleDiscriminator().cuda(rank)
 
-	# Set AdamW Optimizer
-	# from hiddensinger paper
 	optim_g = torch.optim.AdamW(
-		net_g.parameters(),
-		lr=2e-4,
-		betas=(0.8, 0.99),
-		weight_decay=0.01,
+		net_g.parameters(), lr=2e-4, betas=(0.8, 0.99), weight_decay=0.01
 	)
-
 	optim_d = torch.optim.AdamW(
 		list(mpd.parameters()) + list(msd.parameters()),
 		lr=2e-4,
@@ -139,7 +114,7 @@ def run(
 
 	for epoch in range(epoch_str, epochs + 1):
 		if rank == 0:
-			train_and_evaluate(
+			global_step = train_and_evaluate(
 				rank,
 				epoch,
 				[net_g, mpd, msd],
@@ -148,9 +123,10 @@ def run(
 				[train_loader, valid_loader],
 				logger,
 				[writer, writer_eval],
+				global_step,
 			)
 		else:
-			train_and_evaluate(
+			global_step = train_and_evaluate(
 				rank,
 				epoch,
 				[net_g, mpd, msd],
@@ -159,6 +135,7 @@ def run(
 				[train_loader, None],
 				None,
 				None,
+				global_step,
 			)
 		scheduler_g.step()
 		scheduler_d.step()
@@ -171,35 +148,26 @@ def cpurun(
 	seed=1234,
 	lr_decay=0.998,
 	epochs=1000,
-	# just for commit
 	dataset_constructor=None,
 ):
-	global global_step
 	if rank == 0:
 		check_git_hash(save_dir)
 		writer = SummaryWriter(log_dir=save_dir)
 		writer_eval = SummaryWriter(log_dir=os.path.join(save_dir, "eval"))
 	torch.manual_seed(seed)
 
-	# Load Dataset
 	dataset_constructor = AutoEncoderDataset(num_replicas=n_gpus, rank=rank)
-
 	train_loader = dataset_constructor.get_train_loader()
 	if rank == 0:
 		valid_loader = dataset_constructor.get_valid_loader()
 
-	# Create an Autoencoder instance
 	net_g = Autoencoder()
-
-	# Create HiFi-GAN Discriminator instance
 	mpd = MultiPeriodDiscriminator()
 	msd = MultiScaleDiscriminator()
 
-	# Set AdamW Optimizer
 	optim_g = torch.optim.AdamW(
 		net_g.parameters(), lr=2e-4, betas=(0.8, 0.99), weight_decay=0.01
 	)
-
 	optim_d = torch.optim.AdamW(
 		list(mpd.parameters()) + list(msd.parameters()),
 		lr=2e-4,
@@ -227,7 +195,7 @@ def cpurun(
 	)
 
 	for epoch in range(epoch_str, epochs + 1):
-		train_and_evaluate(
+		global_step = train_and_evaluate(
 			rank,
 			epoch,
 			[net_g, mpd, msd],
@@ -236,8 +204,8 @@ def cpurun(
 			[train_loader, valid_loader],
 			logger,
 			[writer, writer_eval],
+			global_step,
 		)
-
 		scheduler_g.step()
 		scheduler_d.step()
 
@@ -251,7 +219,7 @@ def train_and_evaluate(
 	loaders,
 	logger,
 	writers,
-	# train
+	global_step,
 	lambda_recon=0.1,
 	lambda_emb=0.1,
 	lambda_fm=0.1,
@@ -259,7 +227,6 @@ def train_and_evaluate(
 	eval_interval=20000,
 	learning_rate=2e-4,
 	save_dir="/root/logdir/songsuro",
-	# data
 	hop_size=512,
 ):
 	net_g, mpd, msd = nets
@@ -271,24 +238,19 @@ def train_and_evaluate(
 
 	if hasattr(train_loader, "sampler"):
 		train_loader.sampler.set_epoch(epoch)
-	global global_step
 
-	# Set the module to training mode
 	net_g.train()
 	mpd.train()
 	msd.train()
 
 	for batch_idx, data_dict in enumerate(train_loader):
-		# 오디오 데이터 로드
-		# loader에 mel_spectrogram이 있다고 가정
 		mel = data_dict["mel_spectrogram"]
 		wav = data_dict["wav"]
 
-		# 오토인코더 순전파 (출력 확장)
 		y_hat, commit_loss = net_g(mel)
 		gt = wav
 
-		# Decoder-Discriminator 학습
+		# Discriminator training
 		y_df_hat_r, y_df_hat_g, _, _ = mpd(gt, y_hat.detach())
 		loss_disc_f, _, _ = discriminator_loss(y_df_hat_r, y_df_hat_g)
 		y_ds_hat_r, y_ds_hat_g, _, _ = msd(gt, y_hat.detach())
@@ -300,27 +262,21 @@ def train_and_evaluate(
 		clip_grad_value(list(mpd.parameters()) + list(msd.parameters()), None)
 		optim_d.step()
 
-		# Decoder-Generator 학습
+		# Generator training
 		y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = mpd(gt, y_hat)
 		y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = msd(gt, y_hat)
 
-		# 1. 적대적 손실 (λ 없음)
 		loss_gen_f, _ = generator_loss(y_df_hat_g)
 		loss_gen_s, _ = generator_loss(y_ds_hat_g)
 		loss_adv = loss_gen_f + loss_gen_s
 
-		# 2. 특성 매칭 손실 (lambda_fm 적용)
 		loss_fm_f = feature_loss(fmap_f_r, fmap_f_g) * lambda_fm
 		loss_fm_s = feature_loss(fmap_s_r, fmap_s_g) * lambda_fm
 		loss_fm = loss_fm_f + loss_fm_s
 
-		# 3. 재구성 손실 (lambda_recon 적용)
 		loss_recon = reconstruction_loss(gt, y_hat) * lambda_recon
-
-		# 4. 임베딩 손실 (lambda_emb 적용)
 		loss_emb = commit_loss * lambda_emb
 
-		# 최종 손실
 		loss_gen_all = loss_adv + loss_fm + loss_recon + loss_emb
 
 		optim_g.zero_grad()
@@ -331,23 +287,11 @@ def train_and_evaluate(
 		if rank == 0:
 			if global_step % log_interval == 0:
 				lr = optim_g.param_groups[0]["lr"]
-				# losses 리스트를 새로운 손실 구조에 맞게 업데이트
-				# just for commit
-				# losses = [
-				# 	loss_gen_all,
-				# 	loss_adv,
-				# 	loss_fm,
-				# 	loss_recon,
-				# 	loss_emb,
-				# ]
-
 				logger.info(
 					"Train Epoch: {} [{:.0f}%]".format(
 						epoch, 100.0 * batch_idx / len(train_loader)
 					)
 				)
-
-				# 기존 loss_mel 제거 + 새로운 항목 추가
 				logger.info(
 					f"Total: {loss_gen_all.item():.3f}, "
 					f"Adv: {loss_adv.item():.3f}, "
@@ -356,7 +300,6 @@ def train_and_evaluate(
 					f"Emb: {loss_emb.item():.3f}, "
 					f"Step: {global_step}, LR: {lr:.6f}"
 				)
-
 				scalar_dict = {
 					"loss/total": loss_gen_all,
 					"loss/adv": loss_adv,
@@ -368,7 +311,7 @@ def train_and_evaluate(
 
 			if global_step % eval_interval == 0:
 				logger.info(["All training params(G): ", count_parameters(net_g), " M"])
-				evaluate(net_g, eval_loader, writer_eval)
+				evaluate(net_g, eval_loader, writer_eval, global_step)
 				save_checkpoint(
 					net_g,
 					optim_g,
@@ -387,17 +330,12 @@ def train_and_evaluate(
 
 		global_step += 1
 
-		if rank == 0:
-			logger.info("====> Epoch: {}".format(epoch))
+	if rank == 0:
+		logger.info("====> Epoch: {}".format(epoch))
+	return global_step
 
 
-def evaluate(
-	autoencoder,
-	eval_loader,
-	writer_eval,
-	# data
-	sample_rate=44100,
-):
+def evaluate(autoencoder, eval_loader, writer_eval, global_step, sample_rate=44100):
 	autoencoder.eval()
 	with torch.no_grad():
 		for batch_idx, data_dict in enumerate(eval_loader):
@@ -409,32 +347,22 @@ def evaluate(
 				wav = wav.cuda(0)
 				mel = mel.cuda(0)
 
-			# 첫 번째 샘플만 처리
 			wav = wav[:1]
 			mel = mel[:1]
 
-			# 오디오 생성 (추가된 부분)
-			y_hat, y_harm, y_noise = autoencoder.sample(mel)
-
-			# NumPy 변환 (shape 조정)
+			y_hat, _ = autoencoder.sample(mel)
 			y_hat_np = y_hat.squeeze(0).cpu().numpy()
-
-			# 특징 추출
 			y_hat_mel = make_mel_spectrogram_from_audio(y_hat_np)
 
-			# 시각화 자료
 			image_dict = {
 				"gen/mel": plot_spectrogram_to_numpy(y_hat_mel),
 				"gt/mel": plot_spectrogram_to_numpy(mel),
 			}
-
-			# 오디오 텐서 (차원 복원)
 			audio_dict = {
 				"gen/audio": torch.FloatTensor(y_hat_np).unsqueeze(0),
 				"gt/audio": wav[:, :, : wav_lengths[0]],
 			}
 
-			# 로깅
 			summarize(
 				writer=writer_eval,
 				global_step=global_step,
@@ -443,10 +371,172 @@ def evaluate(
 				audio_sampling_rate=sample_rate,
 			)
 			break
-
-	# 다시 training 모드로 전환
 	autoencoder.train()
 
 
-if __name__ == "__main__":
-	main()
+def clip_grad_value(parameters, clip_value, norm_type=2):
+	if isinstance(parameters, torch.Tensor):
+		parameters = [parameters]
+	parameters = list(filter(lambda p: p.grad is not None, parameters))
+	norm_type = float(norm_type)
+	if clip_value is not None:
+		clip_value = float(clip_value)
+
+	total_norm = 0
+	for p in parameters:
+		param_norm = p.grad.data.norm(norm_type)
+		total_norm += param_norm.item() ** norm_type
+		if clip_value is not None:
+			p.grad.data.clamp_(min=-clip_value, max=clip_value)
+	total_norm = total_norm ** (1.0 / norm_type)
+	return total_norm
+
+
+# 이 아래부터는 VISinger2에서 사용된
+def load_checkpoint(checkpoint_path, model, optimizer=None):
+	assert os.path.isfile(checkpoint_path)
+	checkpoint_dict = torch.load(checkpoint_path, map_location="cpu")
+	iteration = checkpoint_dict["iteration"]
+	learning_rate = checkpoint_dict["learning_rate"]
+	if optimizer is not None:
+		optimizer.load_state_dict(checkpoint_dict["optimizer"])
+	saved_state_dict = checkpoint_dict["model"]
+	if hasattr(model, "module"):
+		state_dict = model.module.state_dict()
+	else:
+		state_dict = model.state_dict()
+	new_state_dict = {}
+	for k, v in state_dict.items():
+		try:
+			new_state_dict[k] = saved_state_dict[k]
+		except:
+			print("error, %s is not in the checkpoint" % k)
+			logger.info("%s is not in the checkpoint" % k)
+			new_state_dict[k] = v
+	if hasattr(model, "module"):
+		model.module.load_state_dict(new_state_dict)
+	else:
+		model.load_state_dict(new_state_dict)
+	print("load ")
+	logger.info(
+		"Loaded checkpoint '{}' (iteration {})".format(checkpoint_path, iteration)
+	)
+	return model, optimizer, learning_rate, iteration
+
+
+def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path):
+	logger.info(
+		"Saving model and optimizer state at iteration {} to {}".format(
+			iteration, checkpoint_path
+		)
+	)
+	if hasattr(model, "module"):
+		state_dict = model.module.state_dict()
+	else:
+		state_dict = model.state_dict()
+	torch.save(
+		{
+			"model": state_dict,
+			"iteration": iteration,
+			"optimizer": optimizer.state_dict(),
+			"learning_rate": learning_rate,
+		},
+		checkpoint_path,
+	)
+
+
+def summarize(
+	writer,
+	global_step,
+	scalars={},
+	histograms={},
+	images={},
+	audios={},
+	audio_sampling_rate=22050,
+):
+	for k, v in scalars.items():
+		writer.add_scalar(k, v, global_step)
+	for k, v in histograms.items():
+		writer.add_histogram(k, v, global_step)
+	for k, v in images.items():
+		writer.add_image(k, v, global_step, dataformats="HWC")
+	for k, v in audios.items():
+		writer.add_audio(k, v, global_step, audio_sampling_rate)
+
+
+def latest_checkpoint_path(dir_path, regex="G_*.pth"):
+	f_list = glob.glob(os.path.join(dir_path, regex))
+	f_list.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
+	x = f_list[-1]
+	print(x)
+	return x
+
+
+def get_logger(model_dir, filename="train.log"):
+	global logger
+	logger = logging.getLogger(os.path.basename(model_dir))
+	logger.setLevel(logging.DEBUG)
+
+	formatter = logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
+	if not os.path.exists(model_dir):
+		os.makedirs(model_dir)
+	h = logging.FileHandler(os.path.join(model_dir, filename))
+	h.setLevel(logging.DEBUG)
+	h.setFormatter(formatter)
+	logger.addHandler(h)
+	return logger
+
+
+def count_parameters(model):
+	return sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6
+
+
+def check_git_hash(model_dir):
+	source_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+	if not os.path.exists(os.path.join(source_dir, ".git")):
+		logger.warn(
+			"{} is not a git repository, therefore hash value comparison will be ignored.".format(
+				source_dir
+			)
+		)
+		return
+
+	cur_hash = subprocess.getoutput("git rev-parse HEAD")
+
+	path = os.path.join(model_dir, "githash")
+	if os.path.exists(path):
+		saved_hash = open(path).read()
+		if saved_hash != cur_hash:
+			logger.warn(
+				"git hash values are different. {}(saved) != {}(current)".format(
+					saved_hash[:8], cur_hash[:8]
+				)
+			)
+	else:
+		open(path, "w").write(cur_hash)
+
+
+def plot_spectrogram_to_numpy(spectrogram):
+	global MATPLOTLIB_FLAG
+	if not MATPLOTLIB_FLAG:
+		import matplotlib
+
+		matplotlib.use("Agg")
+		MATPLOTLIB_FLAG = True
+		mpl_logger = logging.getLogger("matplotlib")
+		mpl_logger.setLevel(logging.WARNING)
+	import matplotlib.pylab as plt
+	import numpy as np
+
+	fig, ax = plt.subplots(figsize=(10, 2))
+	im = ax.imshow(spectrogram, aspect="auto", origin="lower", interpolation="none")
+	plt.colorbar(im, ax=ax)
+	plt.xlabel("Frames")
+	plt.ylabel("Channels")
+	plt.tight_layout()
+
+	fig.canvas.draw()
+	data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
+	data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+	plt.close()
+	return data
