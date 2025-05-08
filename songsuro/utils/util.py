@@ -2,11 +2,6 @@ import re
 import string
 
 import torch
-import logging
-import sys
-
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-logger = logging
 
 
 def group_hidden_by_segs(h, seg_ids, max_len, is_BHT=False):
