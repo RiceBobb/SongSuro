@@ -1,5 +1,6 @@
 import re
 import string
+
 import torch
 
 
@@ -37,9 +38,9 @@ def temporal_avg_pool(x, mask=None):
 	Ignores padded/masked elements using boolean mask.
 
 	Note:
-		- Designed for variable-length sequences where padding needs to be ignored
-		- Maintains original feature dimension while reducing temporal dimension to 1
-		- Handles zero-length sequences gracefully through PyTorch's division operation
+	    - Designed for variable-length sequences where padding needs to be ignored
+	    - Maintains original feature dimension while reducing temporal dimension to 1
+	    - Handles zero-length sequences gracefully through PyTorch's division operation
 
 	:param x: Input sequence tensor of shape (batch_size, seq_len, features)
 	:param mask: Boolean mask tensor of shape (batch_size, seq_len, features) where True indicates masked/padded positions

@@ -9,6 +9,7 @@ from songsuro.preprocess import (
 	load_audio,
 	make_spectrogram,
 	make_mel_spectrogram,
+	make_mel_spectrogram_from_audio,
 	extract_f0_from_file,
 	synthesize_audio_from_f0,
 	hz_to_mel,
@@ -99,6 +100,26 @@ class TestAudioProcessing:
 		# Check mel spectrogram dimensions with custom parameters
 		assert mel_spec.shape[0] == n_bins
 		assert mel_spec.shape[1] == power_spec.shape[1]
+
+	def test_make_mel_spectrogram_from_audio(self, sample_audio_file):
+		"""Test creating mel spectrogram from raw audio data."""
+		audio_data = load_audio(sample_audio_file)
+		n_fft = 2048
+		hop_length = 512
+		sr = 24000
+		n_bins = 128
+		fmax = 8000
+
+		mel_spec = make_mel_spectrogram_from_audio(
+			audio_data, n_fft, hop_length, sr, n_bins, fmax
+		)
+
+		# Check mel spectrogram properties
+		assert isinstance(mel_spec, np.ndarray)
+		assert mel_spec.ndim == 2
+		assert mel_spec.shape[0] == n_bins
+		assert mel_spec.shape[1] > 0
+		assert np.all(mel_spec >= 0)
 
 	def test_extract_f0_from_file(self, sample_audio_file):
 		# Test if the function runs without errors
