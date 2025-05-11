@@ -1,12 +1,12 @@
 import pytest
 import torch
 
-from songsuro.condition.encoder.trained_lyrics import TrainedLyricsEncoder
+from songsuro.condition.encoder.pre_trained_lyrics import PretrainedLyricsEncoder
 
 
 @pytest.mark.skip()
 def test_inference_korean():
-	encoder = TrainedLyricsEncoder("kor")
+	encoder = PretrainedLyricsEncoder("kor")
 	lyrics = [
 		"리중딱 리중딱 신나는 노래 나도 한 번 불러 본다",
 		"최강 두산 오명진 안타를 날려라 최강 두산 오명진 홈런을 날려라",
@@ -20,7 +20,7 @@ def test_inference_korean():
 
 @pytest.mark.skip()
 def test_inference_english():
-	encoder = TrainedLyricsEncoder("eng-us")
+	encoder = PretrainedLyricsEncoder("eng-us")
 	lyrics = [
 		"Home run Minesota Twins Byoung Hooo",
 		"Tommy Hyun Soo Edman Home Run",
@@ -42,7 +42,7 @@ def cosine_similarity(tensor1, tensor2):
 
 @pytest.mark.skip()
 def test_similarity_en():
-	encoder = TrainedLyricsEncoder("eng-us")
+	encoder = PretrainedLyricsEncoder("eng-us")
 	lyrics = [
 		"I scream you scream everybody ice cream",
 		"Ice cream you screen everybody I scream",

@@ -6,7 +6,7 @@ from transformers import AutoTokenizer
 from songsuro.utils.g2p import NeuralG2P, SUPPORT_LANGUAGE
 
 
-class TrainedLyricsEncoder:
+class PretrainedLyricsEncoder:
 	def __init__(self, language: SUPPORT_LANGUAGE = "kor"):
 		# TODO: add real model
 		self.tokenizer = AutoTokenizer.from_pretrained(
