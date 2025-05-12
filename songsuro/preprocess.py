@@ -109,7 +109,7 @@ def extract_f0_from_tensor(
 	waveform: torch.Tensor, sample_rate: int, silence_threshold_db: int = -50
 ):
 	f0 = torchaudio.functional.detect_pitch_frequency(
-		waveform, sample_rate=sample_rate, frame_time=0.1
+		waveform, sample_rate=sample_rate, frame_time=0.02
 	)  # default frame time = 0.01
 	return f0
 
@@ -141,7 +141,7 @@ def detect_silence(audio_signal, frame_length=1024, hop_length=512, threshold_db
 def trim_silence(waveform: torch.Tensor, sample_rate: int):
 	trimmed_front = torchaudio.functional.vad(waveform, sample_rate=sample_rate)
 	trimmed_both = torch.flip(
-		torchaudio.functional.vad(torch.flip(trimmed_front, [1]), sample_rate), [1]
+		torchaudio.functional.vad(torch.flip(trimmed_front, [-1]), sample_rate), [-1]
 	)
 	return trimmed_both
 
@@ -176,12 +176,42 @@ def quantize_mel_scale(mel_pitch_values, levels=127, min_val=133, max_val=571):
 	return quantized_values.astype(int)
 
 
+def quantize_mel_scale_torch(mel_pitch_values, levels=127, min_val=133, max_val=571):
+	# Clip non-zero values and leave zeros as is
+	clipped_values = torch.where(
+		mel_pitch_values != 0,
+		torch.clamp(mel_pitch_values, min_val, max_val),
+		torch.tensor(0, dtype=mel_pitch_values.dtype),
+	)
+
+	# Quantize non-zero values and leave zeros as is
+	quantized_values = torch.where(
+		clipped_values != 0,
+		torch.round(
+			(clipped_values - min_val) / (max_val - min_val) * (levels - 1) + 1
+		),
+		torch.tensor(0, dtype=mel_pitch_values.dtype),
+	)
+
+	return quantized_values.to(torch.int64)
+
+
 def hz_to_mel(frequency: np.ndarray):
 	"""
 	Change hz to the mel scale.
 	If the frequency value is 0 (silent), returns 0.
 	"""
 	return np.where(frequency != 0, 2595 * np.log10(1 + frequency / 700), 0)
+
+
+def hz_to_mel_torch(frequency: torch.Tensor):
+	"""
+	Change hz to the mel scale using torch.
+	If the frequency value is 0 (silent), returns 0.
+	"""
+	return torch.where(
+		frequency != 0, 2595 * torch.log10(1 + frequency / 700), torch.tensor(0.0)
+	)
 
 
 def mode_window_filter(arr: np.ndarray, window_size: int):
