@@ -4,6 +4,8 @@ import pathlib
 import pytest
 import numpy as np
 import soundfile as sf
+import torch
+import torchaudio
 
 from songsuro.preprocess import (
 	load_audio,
@@ -16,6 +18,7 @@ from songsuro.preprocess import (
 	quantize_mel_scale,
 	mode_window_filter,
 	detect_silence,
+	extract_f0_from_tensor,
 )
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
@@ -138,6 +141,15 @@ class TestAudioProcessing:
 		audio_length = len(sf.read(sample_audio_file)[0])
 		assert len(pitch_values) == audio_length
 		assert 0 in np.unique(pitch_values)
+
+	def test_extract_f0(self, sample_audio_file):
+		waveform, fs = torchaudio.load(sample_audio_file)
+
+		f0 = extract_f0_from_tensor(waveform, sample_rate=fs)
+
+		f0 = torch.mean(f0, dim=0)
+
+		assert isinstance(f0, torch.Tensor)
 
 	def test_synthesize_audio_from_f0(self, sample_audio_file, tmp_path):
 		# Extract F0 from the sample file

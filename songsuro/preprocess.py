@@ -5,6 +5,8 @@ import amfm_decompy.pYAAPT as pYAAPT
 import librosa
 import numpy as np
 import soundfile as sf
+import torch
+import torchaudio
 from librosa import feature as lf
 from scipy import stats
 
@@ -103,6 +105,13 @@ def extract_f0_from_file(filepath: str, silence_threshold_db: int = -50):
 	return pitch_values_masked, int(fs)
 
 
+def extract_f0_from_tensor(
+	waveform: torch.Tensor, sample_rate: int, silence_threshold_db: int = -50
+):
+	f0 = torchaudio.functional.detect_pitch_frequency(waveform, sample_rate=sample_rate)
+	return f0
+
+
 def detect_silence(audio_signal, frame_length=1024, hop_length=512, threshold_db=-40):
 	"""
 	Distinguishes between silent and non-silent segments in an audio signal.
@@ -113,6 +122,8 @@ def detect_silence(audio_signal, frame_length=1024, hop_length=512, threshold_db
 	:param threshold_db: Threshold in decibels (dB) for detecting silence
 	:return: Boolean array indicating whether each frame contains sound (True) or is silent (False)
 	"""
+	from librosa import feature as lf
+
 	# Compute RMS energy
 	rms = lf.rms(y=audio_signal, frame_length=frame_length, hop_length=hop_length)[0]
 
