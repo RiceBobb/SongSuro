@@ -4,8 +4,6 @@ import os
 import pathlib
 from unittest.mock import patch
 
-from songsuro.condition.encoder.fft import FFTEncoder
-from songsuro.condition.prior_estimator import PriorEstimator
 from songsuro.condition.model import ConditionalEncoder
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent.parent
@@ -14,80 +12,145 @@ resource_dir = os.path.join(root_dir, "resources")
 
 class TestConditionalEncoder:
 	@pytest.fixture
-	def conditional_encoder(self):
+	def encoder(self):
 		return ConditionalEncoder(
-			lyrics_input_channel=100,
+			lyrics_input_channel=512,
 			melody_input_channel=128,
-			enhanced_channel=192,
-			hidden_size=192,
-			prior_output_dim=2,
+			device=torch.device("cpu"),
 		)
 
 	@pytest.fixture
-	def mock_preprocess_f0(self):
-		with patch("songsuro.condition.model.preprocess_f0") as mock:
-			# Mock the return value of preprocess_f0
-			mock.return_value = torch.randint(0, 128, (2, 10))
-			yield mock
+	def sample_lyrics(self):
+		# Create a sample lyrics tensor (batch_size, seq_len)
+		return torch.randint(0, 100, (1, 50), dtype=torch.long)
 
 	@pytest.fixture
 	def sample_audio_file(self):
 		"""Create a temporary sine wave audio file for testing."""
 		yield os.path.join(resource_dir, "sample_only_voice.wav")
 
+	@pytest.fixture
+	def sample_f0(self):
+		# Create a sample quantized f0 tensor (batch_size, seq_len)
+		return torch.randint(0, 100, (1, 200), dtype=torch.long)
+
 	def test_initialization(self, encoder):
-		assert isinstance(encoder.lyrics_encoder, FFTEncoder)
-		assert isinstance(encoder.melody_encoder, FFTEncoder)
-		assert isinstance(encoder.enhanced_condition_encoder, FFTEncoder)
-		assert isinstance(encoder.prior_estimator, PriorEstimator)
+		"""Test if the encoder initializes correctly with all components."""
+		assert hasattr(encoder, "lyrics_encoder")
+		assert hasattr(encoder, "melody_encoder")
+		assert hasattr(encoder, "enhanced_condition_encoder")
+		assert hasattr(encoder, "prior_estimator")
+		assert encoder.device == torch.device("cpu")
 
-	def test_forward(self, conditional_encoder, mock_preprocess_f0, sample_audio_file):
-		batch_size = 2
+	def test_forward_with_tensors(self, encoder, sample_lyrics, sample_f0):
+		"""Test forward pass with tensor inputs."""
+		condition_embedding, prior = encoder(sample_lyrics, quantized_f0=sample_f0)
 
-		# lyrics sequence length and melody sequence length have to be same.
-		lyrics_seq_len = 10
-		melody_seq_len = 10
+		# Check output shapes and types
+		assert isinstance(condition_embedding, torch.Tensor)
+		assert isinstance(prior, torch.Tensor)
+		assert condition_embedding.dim() == 3  # (batch, channels, seq_len)
+		assert prior.dim() == 3  # Assuming prior has shape (batch, dim, seq_len)
 
-		lyrics = torch.randint(0, 100, (batch_size, lyrics_seq_len))
-		lyrics.size = torch.tensor([lyrics_seq_len, lyrics_seq_len])
+	# preprocess_f0 is called in conditional encoder model located in preprocess.py
+	@patch("songsuro.condition.model.preprocess_f0")
+	def test_forward_with_audio_file(
+		self, mock_preprocess, encoder, sample_lyrics, sample_f0, sample_audio_file
+	):
+		"""Test forward pass with audio filepath."""
+		# Mock the preprocess_f0 function to return our sample f0
+		mock_preprocess.return_value = sample_f0
 
-		audio_filepath = sample_audio_file
+		condition_embedding, prior = encoder(
+			sample_lyrics, audio_filepath=sample_audio_file
+		)
 
-		# Mock the FFTEncoder forward method
-		with patch.object(FFTEncoder, "forward") as mock_fft_forward:
-			# Create mock embeddings
-			lyrics_embedding = torch.randn(batch_size, 192, lyrics_seq_len)
-			melody_embedding = torch.randn(batch_size, 192, melody_seq_len)
-			enhanced_embedding = torch.randn(batch_size, 192, lyrics_seq_len)
+		# Verify preprocess_f0 was called with the correct path
+		mock_preprocess.assert_called_once_with(sample_audio_file)
 
-			# Configure the mock to return different values for different calls
-			mock_fft_forward.side_effect = [
-				lyrics_embedding,  # First call (lyrics_encoder)
-				melody_embedding,  # Second call (melody_encoder)
-				enhanced_embedding,  # Third call (enhanced_condition_encoder)
-			]
+		# Check output shapes and types
+		assert isinstance(condition_embedding, torch.Tensor)
+		assert isinstance(prior, torch.Tensor)
 
-			# Mock the PriorEstimator forward method
-			with patch.object(PriorEstimator, "forward") as mock_prior:
-				prior_output = torch.randn(batch_size, 2, lyrics_seq_len)
-				mock_prior.return_value = prior_output
+	def test_device_change(self, encoder):
+		"""Test if the model can be moved to a different device."""
+		# Skip if CUDA is not available
+		if not torch.cuda.is_available():
+			pytest.skip("CUDA not available, skipping device test")
 
-				# Call the forward method
-				enhanced_condition, prior = encoder(lyrics, audio_filepath)
+		encoder = encoder.to("cuda")
+		assert encoder.device == torch.device("cuda")
 
-				# Verify preprocess_f0 was called with the correct arguments
-				mock_preprocess_f0.assert_called_once_with(audio_filepath)
+		# Move back to CPU for cleanup
+		encoder = encoder.to("cpu")
+		assert encoder.device == torch.device("cpu")
 
-				# Verify the outputs
-				assert torch.equal(enhanced_condition, enhanced_embedding)
-				assert torch.equal(prior, prior_output)
+	@pytest.mark.parametrize("batch_size,seq_len", [(1, 50), (2, 30), (4, 20)])
+	def test_different_batch_sizes(self, encoder, batch_size, seq_len):
+		"""Test with different batch sizes and sequence lengths."""
+		lyrics = torch.randint(0, 100, (batch_size, seq_len))
+		f0 = torch.randint(0, 100, (batch_size, seq_len * 2))  # Typically f0 is longer
 
-				# Verify the summation was passed to the enhanced_condition_encoder
-				# The third call to mock_fft_forward should have received lyrics_embedding + melody_embedding
-				calls = mock_fft_forward.call_args_list
-				assert len(calls) == 3
+		condition_embedding, prior = encoder(lyrics, quantized_f0=f0)
 
-				# For the third call, the first argument should be lyrics_embedding + melody_embedding
-				# However, we can't directly check this because the addition happens inside the forward method
-				# We can verify that the third call happened with some arguments
-				assert len(calls[2][0]) >= 1
+		assert condition_embedding.size(0) == batch_size
+		assert prior.size(0) == batch_size
+
+	def test_input_output_consistency(self, encoder, sample_lyrics, sample_f0):
+		"""Test that the same input produces the same output."""
+		embedding1, prior1 = encoder(sample_lyrics, quantized_f0=sample_f0)
+		embedding2, prior2 = encoder(sample_lyrics, quantized_f0=sample_f0)
+
+		torch.testing.assert_close(embedding1, embedding2)
+		torch.testing.assert_close(prior1, prior2)
+
+	def test_gradients_flow(self, encoder, sample_lyrics, sample_f0):
+		"""
+		Test that gradients flow through the model.
+		This function verifies that gradients are properly computed and propagated
+		through the encoder model when processing lyrics and f0 (fundamental frequency) inputs.
+		"""
+		# Set the model to training mode to enable gradient computation
+		encoder.train()
+
+		# Convert input tensors to long type (typically used for embedding indices)
+		lyrics = sample_lyrics
+		f0 = sample_f0
+
+		# Forward pass through the encoder
+		# This generates embeddings and prior distributions from the inputs
+		embedding, prior = encoder(lyrics, quantized_f0=f0)
+
+		# Create a dummy loss by summing all outputs
+		# In a real scenario, this would be replaced by an actual loss function
+		loss = embedding.sum() + prior.sum()
+
+		# Backpropagate the gradients through the network
+		loss.backward()
+
+		# Check if any parameters in the encoder have received gradients
+		has_grad = any(param.grad is not None for param in encoder.parameters())
+
+		# Assert that at least some parameters have gradients
+		# If this fails, it means gradients aren't flowing properly through the model
+		assert has_grad, "No gradients were computed for encoder parameters"
+
+		# Alternative: Check specific parameters if needed
+		for name, param in encoder.named_parameters():
+			if param.requires_grad:
+				assert param.grad is not None, f"No gradient for {name}"
+
+	@pytest.mark.parametrize("device", ["cpu", "cuda"])
+	def test_device_consistency(self, encoder, sample_lyrics, sample_f0, device):
+		"""Test that the model works consistently across devices."""
+		if device == "cuda" and not torch.cuda.is_available():
+			pytest.skip("CUDA not available")
+
+		encoder = encoder.to(device)
+		lyrics = sample_lyrics.to(device)
+		f0 = sample_f0.to(device)
+
+		embedding, prior = encoder(lyrics, quantized_f0=f0)
+
+		assert embedding.device.type == device
+		assert prior.device.type == device
