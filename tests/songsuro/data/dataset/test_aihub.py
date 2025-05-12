@@ -59,7 +59,7 @@ class TestAIHubDataset:
 
 		# Check F0
 		assert isinstance(item["f0"], torch.Tensor)
-		assert item["f0"].dim() == 2  # [batch, time]
+		assert item["f0"].dim() == 1  # [length]
 
 		# Check metadata
 		assert isinstance(item["metadata"], dict)
