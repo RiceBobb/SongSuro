@@ -39,15 +39,43 @@ def make_mel_spectrogram(
 	return mel_spectrogram
 
 
+def make_mel_spectrogram_from_audio(
+	audio_np,
+	n_fft: int = 2048,
+	hop_length: int = 1024,
+	sr: int = 24_000,
+	n_bins: int = 128,
+	fmax: int = 8000,
+):
+	"""
+	Generate mel spectrogram from raw audio data.
+
+	:param audio_np: Raw audio data as a NumPy array
+	:param n_fft: Number of FFT components
+	:param hop_length: Hop length for STFT
+	:param sr: Sampling rate of the audio
+	:param n_bins: Number of mel bins
+	:param fmax: Maximum frequency for mel filterbank
+	:return: Mel spectrogram as a NumPy array
+	"""
+	# Create spectrogram using STFT
+	spec = make_spectrogram(audio_np, n_fft=n_fft, hop_length=hop_length)
+
+	# Convert spectrogram to mel scale
+	mel_spec = make_mel_spectrogram(spec, sr=sr, n_bins=n_bins, fmax=fmax)
+
+	return mel_spec
+
+
 def extract_f0_from_file(filepath: str, silence_threshold_db: int = -50):
 	"""
 	Extract F0 from the input audio file
 
 	:param filepath: The path to the audio file.
 	:param silence_threshold_db: The silence threshold in decibel.
-		Default is -50.
+	    Default is -50.
 	:return: Pitch_values which is F0 and fs which is the sampling rate of input audio.
-		In the output pitch_values, the zero value represents the 'non-voice' value.
+	    In the output pitch_values, the zero value represents the 'non-voice' value.
 	"""
 	if not os.path.exists(filepath):
 		raise FileNotFoundError(filepath)
