@@ -235,9 +235,6 @@ def train_and_evaluate(
 	scheduler_g, scheduler_d = schedulers
 	train_loader, eval_loader = loaders
 
-	if hasattr(train_loader, "sampler"):
-		train_loader.sampler.set_epoch(epoch)
-
 	net_g.train()
 	mpd.train()
 	msd.train()
