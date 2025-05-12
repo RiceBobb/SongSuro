@@ -58,13 +58,13 @@ def main(train_dataset, val_dataset, batch_size=16, port=8001):
 def run(
 	rank,
 	n_gpus,
+	train_dataset,
+	valid_dataset,
+	batch_size,
 	save_dir="/root/logdir/songsuro",
 	seed=1234,
 	lr_decay=0.998,
 	epochs=1,
-	train_dataset=None,
-	valid_dataset=None,
-	batch_size=2,
 ):
 	if rank == 0:
 		check_git_hash(save_dir)
