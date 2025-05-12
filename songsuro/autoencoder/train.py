@@ -4,14 +4,15 @@ import subprocess
 import sys
 import logging
 import warnings
+import argparse
 
 import torch
-from torch.utils.data import random_split
 from torch.utils.tensorboard import SummaryWriter
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from songsuro.data.dataset.aihub import AIHubDataset
 from songsuro.data.loader.base import BaseDataLoader
 
 from songsuro.autoencoder.loss import reconstruction_loss
@@ -41,21 +42,10 @@ print("use_cuda: ", use_cuda)
 logger = logging.getLogger("SongSuro")
 
 
-def main(dataset, batch_size=16, port=8001):
+def main(train_dataset, val_dataset, batch_size=16, port=8001):
 	"""Assume Single Node Multi GPUs Training Only"""
 	os.environ["MASTER_ADDR"] = "localhost"
 	os.environ["MASTER_PORT"] = str(port)
-
-	# 데이터셋 분할 비율 설정
-	train_ratio = 0.8
-
-	# 데이터셋 크기 계산
-	dataset_size = len(dataset)
-	train_size = int(train_ratio * dataset_size)
-	val_size = dataset_size - train_size
-
-	# 데이터셋 분할
-	train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
 	if torch.cuda.is_available():
 		n_gpus = torch.cuda.device_count()
@@ -541,3 +531,37 @@ def plot_spectrogram_to_numpy(spectrogram):
 	data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 	plt.close()
 	return data
+
+
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(
+		description="Train autoencoder with custom datasets"
+	)
+	parser.add_argument(
+		"-train_dir",
+		"--train_dir",
+		required=True,
+		type=str,
+		help="Path to training data directory",
+	)
+	parser.add_argument(
+		"-val_dir",
+		"--val_dir",
+		required=True,
+		type=str,
+		help="Path to validation data directory",
+	)
+	parser.add_argument(
+		"--batch_size", type=int, default=16, help="Batch size for training"
+	)
+
+	args = parser.parse_args()
+
+	# 데이터셋 로드
+	train_dataset = AIHubDataset(args.train_dir)
+	val_dataset = AIHubDataset(args.val_dir)
+
+	# train.py의 main 함수에 데이터셋과 batch_size 전달
+	main(
+		train_dataset=train_dataset, val_dataset=val_dataset, batch_size=args.batch_size
+	)
