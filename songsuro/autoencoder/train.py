@@ -62,7 +62,7 @@ def run(
 	save_dir="/root/logdir/songsuro",
 	seed=1234,
 	lr_decay=0.998,
-	epochs=1000,
+	epochs=1,
 	train_dataset=None,
 	valid_dataset=None,
 	batch_size=2,
