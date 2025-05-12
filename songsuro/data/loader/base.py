@@ -10,7 +10,7 @@ class BaseDataLoader(DataLoader):
 		dataset,
 		batch_size=1,
 		shuffle=False,
-		num_workers=0,
+		num_workers=6,
 		pad_mode="constant",
 		pad_value=0,
 		**kwargs,
