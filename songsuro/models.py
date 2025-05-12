@@ -1,8 +1,9 @@
-from typing import Optional
-
 import numpy as np
 import torch
+import torchaudio
+import wandb
 from torch import nn
+import pytorch_lightning as pl
 
 from songsuro.autoencoder.decoder.generator import Generator
 from songsuro.autoencoder.encoder.encoder import Encoder
@@ -12,47 +13,45 @@ from songsuro.condition.model import ConditionalEncoder
 from songsuro.diffusion.model import Denoiser
 
 
-class Songsuro(nn.Module):
+class Songsuro(pl.LightningModule):
 	def __init__(
 		self,
 		n_mels,
 		latent_dim,
 		condition_dim,
-		device,
 		noise_schedule=np.linspace(1e-4, 0.05, 50),
-		*args,
-		**kwargs,
+		optimizer_betas=(0.8, 0.99),
+		prior_lambda: float = 0.8,
+		contrastive_lambda: float = 1.0,
 	):
 		super().__init__()
-		self.device = device
 		parent_vc = VirtualConv(filter_info=3, stride=1, name="parent")
-		self.encoder = Encoder(n_mels, latent_dim, parent_vc).to(self.device)
-		self.rvq = ResidualVectorQuantizer(latent_dim).to(self.device)
-		self.decoder = Generator(latent_dim).to(self.device)
+		self.encoder = Encoder(n_mels, latent_dim, parent_vc)
+		self.rvq = ResidualVectorQuantizer(latent_dim)
+		self.decoder = Generator(latent_dim)
 		self.max_step_size = len(noise_schedule)
 		self.noise_schedule = noise_schedule  # beta_t
 		self.noise_level = torch.Tensor(
 			np.cumprod(1 - noise_schedule).astype(np.float32)
-		).to(device)  # alpha_t_bar
+		)  # alpha_t_bar
+		self.optimizer_betas = optimizer_betas
+		self.prior_lambda = prior_lambda
+		self.contrastive_lambda = contrastive_lambda
 
 		self.denoiser = Denoiser(
 			self.max_step_size,
 			channel_size=latent_dim,
 			condition_embedding_dim=condition_dim,
-		).to(self.device)
+		)
 		self.conditional_encoder = ConditionalEncoder(
 			hidden_size=condition_dim,
 			prior_output_dim=latent_dim,
-		).to(self.device)
-		self.autocast = torch.cuda.amp.autocast(enabled=kwargs.get("fp16", False))
+		)
 
-	def forward(self, gt_spectrogram, lyrics, step_idx: Optional[int] = None):
-		"""
-		Forward process (in training) of the Songsuro model.
-		This is only one step training
+	def training_step(self, batch, batch_idx):
+		lyrics = batch["lyrics"]
+		gt_spectrogram = batch["mel_spectrogram"]
 
-		:return:
-		"""
 		for param in self.denoiser.parameters():
 			param.grad = None
 
@@ -62,31 +61,103 @@ class Songsuro(nn.Module):
 		with torch.no_grad():  # frozen
 			latent = self.encoder(gt_spectrogram)
 
-		if step_idx is None:
-			step_idx = torch.randint(0, self.max_step_size, [1], device=self.device)
+		step_idx = torch.randint(0, self.max_step_size, [1])
 
-		with self.autocast:
-			condition_embedding, prior = self.conditional_encoder(
-				lyrics, gt_spectrogram
-			)
-			prior_loss = nn.CrossEntropyLoss()(latent, prior)
+		condition_embedding, prior = self.conditional_encoder(lyrics, gt_spectrogram)
+		prior_loss = nn.CrossEntropyLoss()(latent, prior)
 
-			noise_scale = self.noise_level[step_idx].unsqueeze(1)
-			noise_scale_sqrt = noise_scale**0.5
+		noise_scale = self.noise_level[step_idx].unsqueeze(1)
+		noise_scale_sqrt = noise_scale**0.5
 
-			noise = prior + torch.randn_like(
-				latent, device=self.device
-			)  # epsilon sampling from N(\mu, I)
-			noisy_latent = (
-				noise_scale_sqrt * latent + (1.0 - noise_scale) ** 0.5 * noise
-			)  # x_t
+		noise = prior + torch.randn_like(latent)  # epsilon sampling from N(\mu, I)
+		noisy_latent = (
+			noise_scale_sqrt * latent + (1.0 - noise_scale) ** 0.5 * noise
+		)  # x_t
 
-			predicted = self.denoiser(noisy_latent, step_idx, condition_embedding)
-			diff_loss = nn.MSELoss()(
-				noise, predicted.squeeze(1)
-			)  # diffusion loss (denoise loss)
+		predicted = self.denoiser(noisy_latent, step_idx, condition_embedding)
+		diff_loss = nn.MSELoss()(
+			noise, predicted.squeeze(1)
+		)  # diffusion loss (denoise loss)
 
-		return diff_loss, prior_loss
+		final_loss = diff_loss + (self.prior_lambda * prior_loss)
+		self.log("train_loss", final_loss, on_step=True, prog_bar=True, logger=True)
+		return final_loss
+
+	def configure_optimizers(self):
+		optimizer = torch.optim.AdamW(
+			self.model.parameters(),
+			lr=self.lr,
+			betas=self.optimizer_betas,
+		)
+		return [optimizer]
+
+	def validation_step(self, batch, batch_idx):
+		gt_spectrogram = batch["mel_spectrogram"]
+		lyrics = batch["lyrics"]
+		with torch.no_grad():
+			pred_result = self.sample(
+				gt_spectrogram, lyrics
+			)  # Result will be [B, 1, 128_000 * sec]
+			pred_result = pred_result.squeeze(1)  # [B, L]
+		pred_sampling_rate = 128_000
+		mel_spectrogram_transform = torchaudio.transforms.MelSpectrogram(
+			sample_rate=pred_sampling_rate,
+			n_fft=2048,
+			hop_length=1024,
+			f_max=8000,
+		)
+		pred_mel_spectrogram = mel_spectrogram_transform(pred_result)
+
+		pred_mel_spectrogram_np = torch.flip(pred_mel_spectrogram[:1], [1])
+		pred_mel_spectrogram_np = pred_mel_spectrogram_np.squeeze(0).cpu().numpy()
+		wandb.log({"feature/spectrogram": wandb.Image(pred_mel_spectrogram_np)})
+
+		spectrogram_mae = nn.L1Loss(reduction="mean")(
+			pred_mel_spectrogram, gt_spectrogram
+		)
+		self.log("val_loss", spectrogram_mae, on_step=True, prog_bar=True, logger=True)
+
+		return {
+			"loss": spectrogram_mae,
+			"pred": pred_result,
+		}
+
+	def test_step(self, batch, batch_idx):
+		return self.validation_step(batch, batch_idx)
+
+	def forward(self, batch):
+		gt_spectrogram = batch["mel_spectrogram"]
+		lyrics = batch["lyrics"]
+		with torch.no_grad():
+			pred_result = self.sample(gt_spectrogram, lyrics)
+			pred_result = pred_result.squeeze(1)
+
+		return {
+			"pred": pred_result,
+		}
+
+	def denoise(self, latent, condition_embedding, prior):
+		x = prior + torch.randn_like(latent)  # x_T # start with prior
+
+		# Reverse process
+		for step in range(len(self.noise_schedule) - 1, -1, -1):
+			if step > 0:
+				z = torch.randn_like(latent)
+				sigma = (
+					(1.0 - self.noise_level[step - 1])
+					/ (1.0 - self.noise_level[step])
+					* self.noise_schedule[step]
+				) ** 0.5
+			else:
+				z = torch.zeros_like(latent)
+				sigma = 0
+
+			c1 = 1 / ((1 - self.noise_schedule[step]) ** 0.5)
+			c2 = self.noise_schedule[step] / ((1 - self.noise_level[step]) ** 0.5)
+			x = c1 * (x - c2 * self.denoiser(x, step, condition_embedding)) + z * sigma
+			x = torch.clamp(x, -1.0, 1.0)
+
+		return x
 
 	def sample(self, gt_spectrogram, lyrics):
 		"""
@@ -100,31 +171,7 @@ class Songsuro(nn.Module):
 			condition_embedding, prior = self.conditional_encoder(
 				lyrics, gt_spectrogram
 			)
-			x = prior + torch.randn_like(
-				latent, device=self.device
-			)  # x_T # start with prior
-
-			# Reverse process
-			for step in range(len(self.noise_schedule) - 1, -1, -1):
-				if step > 0:
-					z = torch.randn_like(latent)
-					sigma = (
-						(1.0 - self.noise_level[step - 1])
-						/ (1.0 - self.noise_level[step])
-						* self.noise_schedule[step]
-					) ** 0.5
-				else:
-					z = torch.zeros_like(latent)
-					sigma = 0
-
-				c1 = 1 / ((1 - self.noise_schedule[step]) ** 0.5)
-				c2 = self.noise_schedule[step] / ((1 - self.noise_level[step]) ** 0.5)
-				x = (
-					c1 * (x - c2 * self.denoiser(x, step, condition_embedding))
-					+ z * sigma
-				)
-				x = torch.clamp(x, -1.0, 1.0)
-
+			x = self.denoise(latent, condition_embedding, prior)
 			# Now x is generated latent
 			quantized, _ = self.rvq(x)
 			decoded_result = self.decoder(quantized)
