@@ -56,6 +56,7 @@ def main(
 		logger=wandb_logger,
 		callbacks=[tqdm_cb, ckpt_cb, early_stop_callback],
 		check_val_every_n_epoch=1,
+		gradient_clip_val=1e9,
 	)
 	trainer.fit(model, data)
 
