@@ -5,9 +5,9 @@ import sys
 import logging
 import warnings
 import argparse
+import wandb
 
 import torch
-from torch.utils.tensorboard import SummaryWriter
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -43,7 +43,6 @@ logger = logging.getLogger("SongSuro")
 
 
 def main(train_dataset, val_dataset, batch_size=16, port=8001):
-	"""Assume Single Node Multi GPUs Training Only"""
 	os.environ["MASTER_ADDR"] = "localhost"
 	os.environ["MASTER_PORT"] = str(port)
 
@@ -69,8 +68,14 @@ def run(
 ):
 	if rank == 0:
 		check_git_hash(save_dir)
-		writer = SummaryWriter(log_dir=save_dir)
-		writer_eval = SummaryWriter(log_dir=os.path.join(save_dir, "eval"))
+		wandb.init(
+			project="songsuro",
+			config={
+				"batch_size": batch_size,
+				"epochs": epochs,
+				# 필요한 하이퍼파라미터 추가
+			},
+		)
 
 	dist.init_process_group(
 		backend="nccl", init_method="env://", world_size=n_gpus, rank=rank
@@ -119,30 +124,16 @@ def run(
 	)
 
 	for epoch in range(epoch_str, epochs + 1):
-		if rank == 0:
-			global_step = train_and_evaluate(
-				rank,
-				epoch,
-				[net_g, mpd, msd],
-				[optim_g, optim_d],
-				[scheduler_g, scheduler_d],
-				[train_loader, valid_loader],
-				logger,
-				[writer, writer_eval],
-				global_step,
-			)
-		else:
-			global_step = train_and_evaluate(
-				rank,
-				epoch,
-				[net_g, mpd, msd],
-				[optim_g, optim_d],
-				[scheduler_g, scheduler_d],
-				[train_loader, None],
-				None,
-				None,
-				global_step,
-			)
+		global_step = train_and_evaluate(
+			rank,
+			epoch,
+			[net_g, mpd, msd],
+			[optim_g, optim_d],
+			[scheduler_g, scheduler_d],
+			[train_loader, valid_loader],
+			logger,
+			global_step,
+		)
 		scheduler_g.step()
 		scheduler_d.step()
 
@@ -160,8 +151,14 @@ def cpurun(
 ):
 	if rank == 0:
 		check_git_hash(save_dir)
-		writer = SummaryWriter(log_dir=save_dir)
-		writer_eval = SummaryWriter(log_dir=os.path.join(save_dir, "eval"))
+		wandb.init(
+			project="songsuro",
+			config={
+				"batch_size": batch_size,
+				"epochs": epochs,
+				# 필요한 하이퍼파라미터 추가
+			},
+		)
 	torch.manual_seed(seed)
 
 	train_loader = BaseDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -209,7 +206,6 @@ def cpurun(
 			[scheduler_g, scheduler_d],
 			[train_loader, valid_loader],
 			logger,
-			[writer, writer_eval],
 			global_step,
 		)
 		scheduler_g.step()
@@ -224,7 +220,6 @@ def train_and_evaluate(
 	schedulers,
 	loaders,
 	logger,
-	writers,
 	global_step,
 	lambda_recon=0.1,
 	lambda_emb=0.1,
@@ -239,8 +234,6 @@ def train_and_evaluate(
 	optim_g, optim_d = optims
 	scheduler_g, scheduler_d = schedulers
 	train_loader, eval_loader = loaders
-	if writers is not None:
-		writer, writer_eval = writers
 
 	if hasattr(train_loader, "sampler"):
 		train_loader.sampler.set_epoch(epoch)
@@ -313,11 +306,11 @@ def train_and_evaluate(
 					"loss/recon": loss_recon,
 					"loss/emb": loss_emb,
 				}
-				summarize(writer, global_step, scalars=scalar_dict)
+				summarize(global_step, scalars=scalar_dict)
 
 			if global_step % eval_interval == 0:
 				logger.info(["All training params(G): ", count_parameters(net_g), " M"])
-				evaluate(net_g, eval_loader, writer_eval, global_step)
+				evaluate(net_g, eval_loader, global_step)
 				save_checkpoint(
 					net_g,
 					optim_g,
@@ -341,7 +334,30 @@ def train_and_evaluate(
 	return global_step
 
 
-def evaluate(autoencoder, eval_loader, writer_eval, global_step, sample_rate=44100):
+def summarize(
+	global_step,
+	scalars={},
+	histograms={},
+	images={},
+	audios={},
+	audio_sampling_rate=22050,
+):
+	log_dict = {}
+	for k, v in scalars.items():
+		log_dict[k] = v
+	for k, v in histograms.items():
+		log_dict[k] = wandb.Histogram(v.cpu().numpy() if hasattr(v, "cpu") else v)
+	for k, v in images.items():
+		log_dict[k] = wandb.Image(v)
+	for k, v in audios.items():
+		log_dict[k] = wandb.Audio(
+			v.cpu().numpy() if hasattr(v, "cpu") else v, sample_rate=audio_sampling_rate
+		)
+	log_dict["global_step"] = global_step
+	wandb.log(log_dict, step=global_step)
+
+
+def evaluate(autoencoder, eval_loader, global_step, sample_rate=44100):
 	autoencoder.eval()
 	with torch.no_grad():
 		for batch_idx, data_dict in enumerate(eval_loader):
@@ -370,7 +386,6 @@ def evaluate(autoencoder, eval_loader, writer_eval, global_step, sample_rate=441
 			}
 
 			summarize(
-				writer=writer_eval,
 				global_step=global_step,
 				images=image_dict,
 				audios=audio_dict,
@@ -449,25 +464,6 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path)
 		},
 		checkpoint_path,
 	)
-
-
-def summarize(
-	writer,
-	global_step,
-	scalars={},
-	histograms={},
-	images={},
-	audios={},
-	audio_sampling_rate=22050,
-):
-	for k, v in scalars.items():
-		writer.add_scalar(k, v, global_step)
-	for k, v in histograms.items():
-		writer.add_histogram(k, v, global_step)
-	for k, v in images.items():
-		writer.add_image(k, v, global_step, dataformats="HWC")
-	for k, v in audios.items():
-		writer.add_audio(k, v, global_step, audio_sampling_rate)
 
 
 def latest_checkpoint_path(dir_path, regex="G_*.pth"):
