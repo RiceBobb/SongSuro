@@ -19,6 +19,7 @@ from songsuro.preprocess import (
 	mode_window_filter,
 	detect_silence,
 	extract_f0_from_tensor,
+	trim_silence,
 )
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
@@ -252,6 +253,14 @@ class TestAudioProcessing:
 		)
 
 		assert len(has_sound_resampled) == pitch_values.shape[0]
+
+	def test_trim_silence(self, sample_audio_file):
+		waveform, fs = torchaudio.load(sample_audio_file)
+		trim_waveform = trim_silence(waveform, fs)
+
+		assert isinstance(trim_waveform, torch.Tensor)
+		assert trim_waveform.shape[0] == waveform.shape[0]
+		assert trim_waveform.shape[1] < waveform.shape[1]
 
 	def test_detect_silence_zero_audio(self):
 		zero_audio = np.zeros(1000)

@@ -108,7 +108,9 @@ def extract_f0_from_file(filepath: str, silence_threshold_db: int = -50):
 def extract_f0_from_tensor(
 	waveform: torch.Tensor, sample_rate: int, silence_threshold_db: int = -50
 ):
-	f0 = torchaudio.functional.detect_pitch_frequency(waveform, sample_rate=sample_rate)
+	f0 = torchaudio.functional.detect_pitch_frequency(
+		waveform, sample_rate=sample_rate, frame_time=0.1
+	)  # default frame time = 0.01
 	return f0
 
 
@@ -134,6 +136,14 @@ def detect_silence(audio_signal, frame_length=1024, hop_length=512, threshold_db
 	has_sound = db > threshold_db
 
 	return has_sound
+
+
+def trim_silence(waveform: torch.Tensor, sample_rate: int):
+	trimmed_front = torchaudio.functional.vad(waveform, sample_rate=sample_rate)
+	trimmed_both = torch.flip(
+		torchaudio.functional.vad(torch.flip(trimmed_front, [1]), sample_rate), [1]
+	)
+	return trimmed_both
 
 
 def synthesize_audio_from_f0(pitch_values, fs: int, save_path: str = None):
