@@ -21,12 +21,17 @@ from songsuro.models import Songsuro
 )
 @click.option("--batch_size", type=int, default=32)
 @click.option("--num_workers", type=int, default=6)
-@click.option("--checkpoint_path", type=click.Path(dir_okay=True, file_okay=False))
+@click.option(
+	"--autoencoder_checkpoint_path",
+	type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@click.option("--checkpoint_path", type=click.Path(dir_okay=False, file_okay=True))
 def main(
 	train_root_dir: Union[str, Path],
 	val_root_dir: Union[str, Path],
 	batch_size: int,
 	num_workers: int,
+	autoencoder_checkpoint_path: Union[Path, str],
 	checkpoint_path: Union[str, Path],
 ):
 	if not os.path.exists(str(checkpoint_path)):
@@ -35,7 +40,11 @@ def main(
 	data = SongsuroDataModule(
 		train_root_dir, val_root_dir, batch_size=batch_size, num_workers=num_workers
 	)
-	model = Songsuro(1_025, 80, 192)
+
+	if os.path.exists(str(checkpoint_path)):
+		model = Songsuro.load_from_checkpoint(checkpoint_path)
+	else:
+		model = Songsuro(80, 192, autoencoder_checkpoint_path)
 
 	tqdm_cb = TQDMProgressBar(refresh_rate=10)
 	ckpt_cb = ModelCheckpoint(

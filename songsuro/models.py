@@ -5,30 +5,29 @@ import wandb
 from torch import nn
 import pytorch_lightning as pl
 
-from songsuro.autoencoder.decoder.generator import Generator
-from songsuro.autoencoder.encoder.encoder import Encoder
-from songsuro.autoencoder.encoder.vconv import VirtualConv
-from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
 from songsuro.condition.model import ConditionalEncoder
 from songsuro.diffusion.model import Denoiser
+from songsuro.autoencoder.models import Autoencoder
 
 
 class Songsuro(pl.LightningModule):
 	def __init__(
 		self,
-		n_mels,
 		latent_dim,
 		condition_dim,
+		autoencoder_checkpoint_path: str,
 		noise_schedule=np.linspace(1e-4, 0.05, 50),
 		optimizer_betas=(0.8, 0.99),
 		prior_lambda: float = 0.8,
 		contrastive_lambda: float = 1.0,
 	):
 		super().__init__()
-		parent_vc = VirtualConv(filter_info=3, stride=1, name="parent")
-		self.encoder = Encoder(n_mels, latent_dim, parent_vc)
-		self.rvq = ResidualVectorQuantizer(latent_dim)
-		self.decoder = Generator(latent_dim)
+		self.autoencoder = Autoencoder()
+		self.autoencoder.load_state_dict(
+			torch.load(autoencoder_checkpoint_path, weights_only=True)
+		)
+		self.autoencoder.eval()
+
 		self.max_step_size = len(noise_schedule)
 		self.noise_schedule = noise_schedule  # beta_t
 		self.noise_level = torch.Tensor(
@@ -59,7 +58,7 @@ class Songsuro(pl.LightningModule):
 			param.grad = None
 
 		with torch.no_grad():  # frozen
-			latent = self.encoder(gt_spectrogram)
+			latent = self.autoencoder.encode(gt_spectrogram)
 
 		step_idx = torch.randint(0, self.max_step_size, [1])
 
@@ -167,13 +166,12 @@ class Songsuro(pl.LightningModule):
 		:return: The generated waveform.
 		"""
 		with torch.no_grad():
-			latent = self.encoder(gt_spectrogram)
+			latent = self.autoencoder.encode(gt_spectrogram)
 			# The latent is from the autoencoder encoder
 			condition_embedding, prior = self.conditional_encoder(
 				lyrics, gt_spectrogram
 			)
 			x = self.denoise(latent, condition_embedding, prior)
 			# Now x is generated latent
-			quantized, _ = self.rvq(x)
-			decoded_result = self.decoder(quantized)
+			decoded_result = self.autoencoder.decode(x)
 			return decoded_result

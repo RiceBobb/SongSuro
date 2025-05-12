@@ -76,6 +76,17 @@ class Autoencoder(nn.Module):
 		return decoded, commit_loss
 
 	@torch.no_grad()
+	def encode(self, mel):
+		encoded = self.encoder(mel)
+		return encoded
+
+	@torch.no_grad()
+	def decode(self, encoded):
+		quantized, _ = self.quantizer(encoded)
+		decoded = self.decoder(quantized)
+		return decoded
+
+	@torch.no_grad()
 	def sample(self, mel, device=None):
 		self.eval()
 		if device is not None:
