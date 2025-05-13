@@ -8,6 +8,8 @@ from songsuro.condition.prior_estimator import PriorEstimator
 class ConditionalEncoder(nn.Module):
 	def __init__(self, hidden_size: int, prior_output_dim: int):
 		super().__init__()
+		self.hidden_size = hidden_size
+		self.prior_output_dim = prior_output_dim
 		self.timbre_encoder = TimbreEncoder(hidden_size, vq_input_dim=80)
 		self.style_encoder = StyleEncoder(hidden_size)
 		self.prior_estimator = PriorEstimator(hidden_size, prior_output_dim)

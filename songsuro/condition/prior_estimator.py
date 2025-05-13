@@ -14,8 +14,6 @@ class PriorEstimator(nn.Module):
 		self.layer = nn.Linear(condition_embedding_dim, output_dim)
 
 	def forward(self, x):
-		# Input x will be (Batch, Embedding_dim, Length)
-		x = x.transpose(1, 2)
-		x = self.layer(x)
-		x = x.transpose(1, 2)  # Output x will be (Batch, output_dim, Length)
+		# Input x will be (Batch, Embedding_dim)
+		x = self.layer(x)  # Output x will be (Batch, output_dim)
 		return x

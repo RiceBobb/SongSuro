@@ -30,7 +30,10 @@ class DiffusionEmbedding(nn.Module):
 
 	def forward(self, diffusion_step):
 		# Input will be just an integer or float represents diffusion step number
-		if diffusion_step.dtype in [torch.int32, torch.int64]:
+		if type(diffusion_step) is int or diffusion_step.dtype in [
+			torch.int32,
+			torch.int64,
+		]:
 			x = self.embedding[diffusion_step]
 		else:
 			x = self._lerp_embedding(diffusion_step)
@@ -113,6 +116,17 @@ class ResidualBlock(nn.Module):
 		condition_embedding = condition_embedding.transpose(1, 2)
 		condition = self.conditioner_projection(condition_embedding)
 		condition = condition.transpose(1, 2)
+		# Repeat
+		num_repeats = after_dil_conv.shape[-1] // condition.shape[-1]
+		remainder = after_dil_conv.shape[-1] % condition.shape[-1]
+		condition = torch.cat(
+			[
+				condition.repeat(1, 1, num_repeats),
+				condition[..., :remainder],
+			],
+			dim=2,
+		)
+
 		condition_residual = after_dil_conv + condition
 
 		gate, filter = torch.chunk(condition_residual, 2, dim=1)
