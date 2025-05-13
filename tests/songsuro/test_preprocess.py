@@ -4,6 +4,8 @@ import pathlib
 import pytest
 import numpy as np
 import soundfile as sf
+import torch
+import torchaudio
 
 from songsuro.preprocess import (
 	load_audio,
@@ -16,6 +18,9 @@ from songsuro.preprocess import (
 	quantize_mel_scale,
 	mode_window_filter,
 	detect_silence,
+	extract_f0_from_tensor,
+	trim_silence,
+	quantize_mel_scale_torch,
 )
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
@@ -139,6 +144,24 @@ class TestAudioProcessing:
 		assert len(pitch_values) == audio_length
 		assert 0 in np.unique(pitch_values)
 
+	def test_extract_f0_mono(self, sample_audio_file):
+		waveform, fs = torchaudio.load(sample_audio_file)
+		waveform = torch.mean(waveform, dim=0)
+		trimmed_waveform = trim_silence(waveform, fs)
+
+		f0 = extract_f0_from_tensor(trimmed_waveform, sample_rate=fs)
+
+		assert isinstance(f0, torch.Tensor)
+		assert f0.ndim == 1
+
+	def test_extract_f0_dual(self, sample_audio_file):
+		waveform, fs = torchaudio.load(sample_audio_file)
+		trimmed_waveform = trim_silence(waveform, fs)
+		f0 = extract_f0_from_tensor(trimmed_waveform, sample_rate=fs)
+
+		assert isinstance(f0, torch.Tensor)
+		assert f0.ndim == 2
+
 	def test_synthesize_audio_from_f0(self, sample_audio_file, tmp_path):
 		# Extract F0 from the sample file
 		pitch_values, fs = extract_f0_from_file(sample_audio_file)
@@ -197,6 +220,14 @@ class TestAudioProcessing:
 		assert quantized_f0.ndim == 1
 		assert quantized_f0.shape[0] == pitch_values.shape[0]
 
+	def test_quantized_f0_tensor(self):
+		sample_pitch_values = torch.Tensor([132, 572, 0, 349, 0])
+		quantized_f0 = quantize_mel_scale_torch(sample_pitch_values)
+		assert isinstance(quantized_f0, torch.Tensor)
+		assert torch.allclose(
+			torch.Tensor([1, 127, 0, 63, 0]).to(torch.int64), quantized_f0
+		)
+
 	def test_quantized_f0_sample(self):
 		sample_pitch_values = np.array([132, 572, 0, 349, 0])
 		quantized_f0 = quantize_mel_scale(sample_pitch_values)
@@ -240,6 +271,14 @@ class TestAudioProcessing:
 		)
 
 		assert len(has_sound_resampled) == pitch_values.shape[0]
+
+	def test_trim_silence(self, sample_audio_file):
+		waveform, fs = torchaudio.load(sample_audio_file)
+		trim_waveform = trim_silence(waveform, fs)
+
+		assert isinstance(trim_waveform, torch.Tensor)
+		assert trim_waveform.shape[0] == waveform.shape[0]
+		assert trim_waveform.shape[1] < waveform.shape[1]
 
 	def test_detect_silence_zero_audio(self):
 		zero_audio = np.zeros(1000)
