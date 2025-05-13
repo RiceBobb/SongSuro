@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torchaudio
-import wandb
 from torch import nn
 import pytorch_lightning as pl
 
@@ -99,22 +98,17 @@ class Songsuro(pl.LightningModule):
 		gt_spectrogram = batch["mel_spectrogram"]
 		lyrics = batch["lyrics"]
 		with torch.no_grad():
-			pred_result = self.sample(
-				gt_spectrogram, lyrics
-			)  # Result will be [B, 1, 128_000 * sec]
+			pred_result = self.sample(gt_spectrogram, lyrics)
 			pred_result = pred_result.squeeze(1)  # [B, L]
-		pred_sampling_rate = 128_000
+
+		# TODO: sample rates can be different among audio samples
 		mel_spectrogram_transform = torchaudio.transforms.MelSpectrogram(
-			sample_rate=pred_sampling_rate,
+			sample_rate=batch["sample_rates"][0],
 			n_fft=2048,
 			hop_length=1024,
 			f_max=8000,
 		)
 		pred_mel_spectrogram = mel_spectrogram_transform(pred_result)
-
-		pred_mel_spectrogram_np = torch.flip(pred_mel_spectrogram[:1], [1])
-		pred_mel_spectrogram_np = pred_mel_spectrogram_np.squeeze(0).cpu().numpy()
-		wandb.log({"feature/spectrogram": wandb.Image(pred_mel_spectrogram_np)})
 
 		spectrogram_mae = nn.L1Loss(reduction="mean")(
 			pred_mel_spectrogram, gt_spectrogram
@@ -141,7 +135,7 @@ class Songsuro(pl.LightningModule):
 		}
 
 	def denoise(self, latent, condition_embedding, prior):
-		x = prior + torch.randn_like(latent)  # x_T # start with prior
+		x = prior.unsqueeze(-1) + torch.randn_like(latent)  # x_T # start with prior
 
 		# Reverse process
 		for step in range(len(self.noise_schedule) - 1, -1, -1):

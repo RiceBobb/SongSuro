@@ -30,7 +30,10 @@ class DiffusionEmbedding(nn.Module):
 
 	def forward(self, diffusion_step):
 		# Input will be just an integer or float represents diffusion step number
-		if diffusion_step.dtype in [torch.int32, torch.int64]:
+		if type(diffusion_step) is int or diffusion_step.dtype in [
+			torch.int32,
+			torch.int64,
+		]:
 			x = self.embedding[diffusion_step]
 		else:
 			x = self._lerp_embedding(diffusion_step)
