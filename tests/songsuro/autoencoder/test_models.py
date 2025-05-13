@@ -98,6 +98,14 @@ def test_forward_with_mocks(ae_params):
 		Autoencoder.__init__ = original_init
 
 
+def test_autoencoder_encode():
+	autoencoder = Autoencoder()
+	input_spectrogram = torch.randn((2, 128, 5000))
+	res = autoencoder.encode(input_spectrogram)  # 2492
+	assert isinstance(res, torch.Tensor)
+	assert res.shape == (2, 80, 2493)
+
+
 def test_with_real_components(autoencoder):
 	# Create a small input tensor
 	x = torch.randn(2, 1, 32)
