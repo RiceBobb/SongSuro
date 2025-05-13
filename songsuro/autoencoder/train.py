@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import logging
+import time
 import warnings
 import argparse
 import wandb
@@ -78,6 +79,11 @@ def run(
 				# 필요한 하이퍼파라미터 추가
 			},
 		)
+		# 커스텀 x축 설정
+		wandb.define_metric("epoch")
+		wandb.define_metric("batch")
+		wandb.define_metric("train/*", step_metric="batch")
+		wandb.define_metric("val/*", step_metric="epoch")
 
 	dist.init_process_group(
 		backend="nccl", init_method="env://", world_size=n_gpus, rank=rank
@@ -126,6 +132,9 @@ def run(
 	)
 
 	for epoch in range(epoch_str, epochs + 1):
+		# 에포크 시작 시간 기록
+		start_time = time.time()
+
 		global_step = train_and_evaluate(
 			rank,
 			epoch,
@@ -136,6 +145,23 @@ def run(
 			logger,
 			global_step,
 		)
+
+		end_time = time.time()
+		epoch_duration = end_time - start_time
+
+		if rank == 0:
+			lr_g = optim_g.param_groups[0]["lr"]
+			lr_d = optim_d.param_groups[0]["lr"]
+			wandb.log(
+				{
+					"epoch": epoch,
+					"scheduler/lr_g": lr_g,
+					"scheduler/lr_d": lr_d,
+					"time/epoch_duration_minutes": epoch_duration / 60,
+				},
+				step=global_step,
+			)
+
 		scheduler_g.step()
 		scheduler_d.step()
 
@@ -230,7 +256,6 @@ def train_and_evaluate(
 	eval_interval=20000,
 	learning_rate=2e-4,
 	save_dir="/root/logdir/songsuro",
-	hop_size=512,
 ):
 	net_g, mpd, msd = nets
 	optim_g, optim_d = optims
@@ -299,13 +324,32 @@ def train_and_evaluate(
 					f"Step: {global_step}, LR: {lr:.6f}"
 				)
 				scalar_dict = {
-					"loss/total": loss_gen_all,
-					"loss/adv": loss_adv,
-					"loss/fm": loss_fm,
-					"loss/recon": loss_recon,
-					"loss/emb": loss_emb,
+					"train/loss/total": loss_gen_all,
+					"train/loss/adv": loss_adv,
+					"train/loss/fm": loss_fm,
+					"train/loss/recon": loss_recon,
+					"train/loss/emb": loss_emb,
+					"train/lr": lr,
+					"batch": global_step,
 				}
-				summarize(global_step, scalars=scalar_dict)
+
+				# 진행 상황 백분율 계산
+				progress_percent = 100.0 * batch_idx / len(train_loader)
+
+				logger.info(
+					"Train Epoch: {} [{}/{} ({:.0f}%)]".format(
+						epoch, batch_idx, len(train_loader), progress_percent
+					)
+				)
+
+				# 스칼라 값에 진행 상황 추가
+				scalar_dict = {
+					"train/loss/total": loss_gen_all,
+					# 기존 로깅 항목들...
+					"progress/percent": progress_percent,
+					"batch": global_step,
+				}
+				summarize(global_step, epoch=epoch, scalars=scalar_dict)
 
 			if global_step % eval_interval == 0:
 				logger.info(["All training params(G): ", count_parameters(net_g), " M"])
@@ -335,24 +379,50 @@ def train_and_evaluate(
 
 def summarize(
 	global_step,
+	epoch=None,
 	scalars={},
 	histograms={},
 	images={},
 	audios={},
 	audio_sampling_rate=22050,
+	parameters=None,  # 모델 파라미터 추가
 ):
 	log_dict = {}
+
+	# 스칼라 값 로깅
 	for k, v in scalars.items():
-		log_dict[k] = v
+		log_dict[k] = v.item() if hasattr(v, "item") else v
+
+	# 히스토그램 로깅
 	for k, v in histograms.items():
 		log_dict[k] = wandb.Histogram(v.cpu().numpy() if hasattr(v, "cpu") else v)
+
+	# 이미지 로깅
 	for k, v in images.items():
 		log_dict[k] = wandb.Image(v)
+
+	# 오디오 로깅
 	for k, v in audios.items():
 		log_dict[k] = wandb.Audio(
 			v.cpu().numpy() if hasattr(v, "cpu") else v, sample_rate=audio_sampling_rate
 		)
+
+	# 모델 파라미터 히스토그램 로깅
+	if parameters is not None:
+		for name, param in parameters:
+			if param.requires_grad and param.grad is not None:
+				log_dict[f"parameters/{name}/values"] = wandb.Histogram(
+					param.data.cpu().numpy()
+				)
+				log_dict[f"parameters/{name}/gradients"] = wandb.Histogram(
+					param.grad.data.cpu().numpy()
+				)
+
+	# 글로벌 스텝과 에포크 정보 추가
 	log_dict["global_step"] = global_step
+	if epoch is not None:
+		log_dict["epoch"] = epoch
+
 	wandb.log(log_dict, step=global_step)
 
 
@@ -526,6 +596,28 @@ def plot_spectrogram_to_numpy(spectrogram):
 	data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 	plt.close()
 	return data
+
+
+def log_gradient_norm(model, global_step, epoch=None, prefix="gradient"):
+	"""모델의 그래디언트 노름을 계산하고 로깅합니다."""
+	total_norm = 0
+	param_norms = {}
+
+	for name, param in model.named_parameters():
+		if param.requires_grad and param.grad is not None:
+			param_norm = param.grad.data.norm(2)
+			param_norms[f"{prefix}/{name}_norm"] = param_norm.item()
+			total_norm += param_norm.item() ** 2
+
+	total_norm = total_norm**0.5
+	param_norms[f"{prefix}/total_norm"] = total_norm
+
+	if epoch is not None:
+		param_norms["epoch"] = epoch
+
+	wandb.log(param_norms, step=global_step)
+
+	return total_norm
 
 
 if __name__ == "__main__":
