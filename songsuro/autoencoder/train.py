@@ -268,7 +268,7 @@ def train_and_evaluate(
 
 	for batch_idx, data_dict in enumerate(train_loader):
 		mel = data_dict["mel_spectrogram"]
-		wav = data_dict["wav"]
+		wav = data_dict["audio"]
 
 		y_hat, commit_loss = net_g(mel)
 		gt = wav
