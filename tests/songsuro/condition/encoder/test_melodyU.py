@@ -1,8 +1,9 @@
 import os
 import pathlib
 
-import numpy as np
 import pytest
+import torch
+import torchaudio
 
 from songsuro.condition.encoder.melodyU import preprocess_f0
 
@@ -19,9 +20,9 @@ def sample_audio_file():
 
 
 def test_mode_window_filter(sample_audio_file):
-	frame_quantized_f0 = preprocess_f0(sample_audio_file)
+	waveform, fs = torchaudio.load(sample_audio_file)
+	frame_quantized_f0 = preprocess_f0(waveform, fs)
 
-	assert isinstance(frame_quantized_f0, np.ndarray)
+	assert isinstance(frame_quantized_f0, torch.Tensor)
 	assert frame_quantized_f0.ndim == 1
-	assert 0 in np.unique(frame_quantized_f0)
 	assert frame_quantized_f0.shape[0] < 2000

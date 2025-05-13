@@ -2,7 +2,6 @@ import glob
 import json
 import os
 
-import torch
 import torchaudio
 from torch.utils.data import Dataset
 
@@ -39,8 +38,7 @@ class AIHubDataset(Dataset):
 		mel_spectrogram = mel_spectrogram_transform(audio)
 
 		# F0 Contour
-		f0 = preprocess_f0(wav_filepath)
-		f0_tensor = torch.Tensor([f0]).float()
+		f0 = preprocess_f0(audio, sample_rate)
 
 		# Lyrics & Label
 		rel_path = os.path.relpath(wav_filepath, start=self.root_dir)
@@ -69,7 +67,7 @@ class AIHubDataset(Dataset):
 			"audio_filepath": wav_filepath,
 			"label_filepath": label_path,
 			"lyrics": lyrics,
-			"f0": f0_tensor,
+			"f0": f0,
 			"metadata": metadata,
 		}
 
