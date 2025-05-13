@@ -69,7 +69,7 @@ class ConvReLURes(nn.Module):
 		B, C, T = n_batch, n_in_chan, n_win
 		x: (B, C, T)
 		"""
-		identity = x  # 원본 입력 저장
+		identity = x.clone()  # 원본 입력 저장
 
 		if self.asymmetric_padding:
 			x = nn.functional.pad(x, (self.pad_left, self.pad_right))
