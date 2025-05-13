@@ -63,12 +63,16 @@ class Songsuro(pl.LightningModule):
 		step_idx = torch.randint(0, self.max_step_size, [1])
 
 		condition_embedding, prior = self.conditional_encoder(lyrics, gt_spectrogram)
-		prior_loss = nn.CrossEntropyLoss()(latent, prior)
+		# condition embedding shape : [B, Condition Dimension, Length]
+		# prior shape : [B, latent_dim]
+		prior_loss = nn.CrossEntropyLoss()(torch.mean(latent, dim=-1), prior)
 
 		noise_scale = self.noise_level[step_idx].unsqueeze(1)
 		noise_scale_sqrt = noise_scale**0.5
 
-		noise = prior + torch.randn_like(latent)  # epsilon sampling from N(\mu, I)
+		noise = prior.unsqueeze(-1) + torch.randn_like(
+			latent
+		)  # epsilon sampling from N(\mu, I)
 		noisy_latent = (
 			noise_scale_sqrt * latent + (1.0 - noise_scale) ** 0.5 * noise
 		)  # x_t
