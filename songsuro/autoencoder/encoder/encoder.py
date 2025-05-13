@@ -28,7 +28,6 @@ class ConvReLURes(nn.Module):
 		# 필터 크기와 스트라이드에 따른 패딩 계산
 		if stride == 1:
 			# 입력과 출력 크기를 동일하게 유지하기 위한 패딩
-			padding = (filter_sz - 1) // 2
 			if filter_sz % 2 == 0:  # 짝수 필터 크기인 경우 비대칭 패딩 필요
 				self.asymmetric_padding = True
 				self.pad_left = filter_sz // 2 - 1
@@ -69,7 +68,7 @@ class ConvReLURes(nn.Module):
 		B, C, T = n_batch, n_in_chan, n_win
 		x: (B, C, T)
 		"""
-		identity = x  # 원본 입력 저장
+		identity = x.clone()  # 원본 입력 저장
 
 		if self.asymmetric_padding:
 			x = nn.functional.pad(x, (self.pad_left, self.pad_right))
