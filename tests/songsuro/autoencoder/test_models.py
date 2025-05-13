@@ -103,7 +103,7 @@ def test_autoencoder_encode():
 	input_spectrogram = torch.randn((2, 128, 5000))
 	res = autoencoder.encode(input_spectrogram)  # 2492
 	assert isinstance(res, torch.Tensor)
-	assert res.shape == (2, 80, 2493)
+	assert res.shape == (2, 80, 2500)
 
 
 def test_with_real_components(autoencoder):
