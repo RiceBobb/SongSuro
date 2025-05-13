@@ -42,17 +42,19 @@ print("use_cuda: ", use_cuda)
 logger = logging.getLogger("SongSuro")
 
 
-def main(train_dataset, val_dataset, batch_size=16, port=8001):
+def main(train_dataset, val_dataset, epochs, batch_size=16, port=8001):
 	os.environ["MASTER_ADDR"] = "localhost"
 	os.environ["MASTER_PORT"] = str(port)
 
 	if torch.cuda.is_available():
 		n_gpus = torch.cuda.device_count()
 		mp.spawn(
-			run, nprocs=n_gpus, args=(n_gpus, train_dataset, val_dataset, batch_size)
+			run,
+			nprocs=n_gpus,
+			args=(n_gpus, train_dataset, val_dataset, batch_size, epochs),
 		)
 	else:
-		cpurun(0, 1, train_dataset, val_dataset, batch_size)
+		cpurun(0, 1, train_dataset, val_dataset, batch_size, epochs)
 
 
 def run(
@@ -61,10 +63,10 @@ def run(
 	train_dataset,
 	valid_dataset,
 	batch_size,
+	epochs=1,
 	save_dir="/root/logdir/songsuro",
 	seed=1234,
 	lr_decay=0.998,
-	epochs=1,
 ):
 	if rank == 0:
 		check_git_hash(save_dir)
@@ -546,6 +548,9 @@ if __name__ == "__main__":
 	)
 	parser.add_argument(
 		"--batch_size", type=int, default=16, help="Batch size for training"
+	)
+	parser.add_argument(
+		"--epochs", type=int, default=1, help="Number of epochs to train"
 	)
 
 	args = parser.parse_args()
