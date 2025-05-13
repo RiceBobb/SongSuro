@@ -89,10 +89,12 @@ def test_generator_with_different_resblock(generator_args):
 	generator = Generator(**generator_args)
 
 	# Create input tensor
-	x = torch.randn(2, generator_args["generator_input_channels"], 100)
+	x = torch.randn(
+		2, generator_args["generator_input_channels"], 100
+	)  # one frame is 20ms
 
 	# Run forward pass
-	output = generator(x)
+	output = generator(x)  # Output will be 128khz audio
 
 	# Check output shape
 	assert isinstance(output, torch.Tensor)

@@ -26,37 +26,9 @@ class TestPriorEstimator:
 	def test_forward_pass(self, prior_estimator):
 		"""Test the forward pass of the PriorEstimator."""
 		batch_size = 8
-		sequence_length = 16
-
 		# Create a random input tensor with shape (batch_size, embedding_dim, length)
-		x = torch.randn(batch_size, condition_embedding_dim, sequence_length)
+		x = torch.randn(batch_size, condition_embedding_dim)
 		# Forward pass
 		output = prior_estimator(x)
 		# Check output shape
-		assert output.shape == (batch_size, output_dim, sequence_length)
-
-	def test_transpose_operations(self, prior_estimator):
-		"""Test that the transpose operations work correctly."""
-		batch_size = 4
-		sequence_length = 10
-
-		# Set weights to a fixed value for deterministic testing
-		with torch.no_grad():
-			prior_estimator.layer.weight.fill_(0.1)
-			prior_estimator.layer.bias.fill_(0.0)
-
-		# Create an input with recognizable values
-		x = torch.ones(batch_size, condition_embedding_dim, sequence_length)
-
-		# Forward pass
-		output = prior_estimator(x)
-
-		# Expected output after transpose, linear layer, and transpose back
-		# Linear layer with weight 0.1 and input of ones should give:
-		# 0condition_embedding_dim for each element (plus bias of 0)
-		expected_value = 0.1 * condition_embedding_dim
-
-		# Check if all values in the output are close to the expected value
-		assert torch.allclose(
-			output, torch.full_like(output, expected_value), rtol=1e-5
-		)
+		assert output.shape == (batch_size, output_dim)
