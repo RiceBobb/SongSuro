@@ -18,7 +18,7 @@ class Autoencoder(nn.Module):
 		# generator (= decoder)
 		resblock="1",
 		resblock_kernel_sizes=[3, 7, 11],
-		upsample_rates=[8, 8, 2, 2],
+		upsample_rates=[16, 8, 4, 4],
 		upsample_initial_channel=512,
 		upsample_kernel_sizes=[16, 16, 4, 4],
 		resblock_dilation_sizes=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
@@ -74,6 +74,17 @@ class Autoencoder(nn.Module):
 		quantized, commit_loss = self.quantizer(encoded)
 		decoded = self.decoder(quantized)
 		return decoded, commit_loss
+
+	@torch.no_grad()
+	def encode(self, mel):
+		encoded = self.encoder(mel)
+		return encoded
+
+	@torch.no_grad()
+	def decode(self, encoded):
+		quantized, _ = self.quantizer(encoded)
+		decoded = self.decoder(quantized)
+		return decoded
 
 	@torch.no_grad()
 	def sample(self, mel, device=None):

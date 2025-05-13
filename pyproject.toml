@@ -53,6 +53,7 @@ dependencies = [
     "wandb>=0.19.10",
     "torchaudio>=2.7.0",
     "transformers>=4.51.3",
+    "pytorch-lightning>=2.5.1.post0",
 ]
 dynamic = ["version"]
 
