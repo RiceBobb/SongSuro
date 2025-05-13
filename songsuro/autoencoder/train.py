@@ -653,5 +653,8 @@ if __name__ == "__main__":
 
 	# train.py의 main 함수에 데이터셋과 batch_size 전달
 	main(
-		train_dataset=train_dataset, val_dataset=val_dataset, batch_size=args.batch_size
+		train_dataset=train_dataset,
+		val_dataset=val_dataset,
+		batch_size=args.batch_size,
+		epochs=args.epochs,
 	)
