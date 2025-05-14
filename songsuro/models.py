@@ -87,7 +87,8 @@ class Songsuro(pl.LightningModule):
 
 	def configure_optimizers(self):
 		optimizer = torch.optim.AdamW(
-			self.model.parameters(),
+			list(self.denoiser.parameters())
+			+ list(self.conditional_encoder.parameters()),
 			lr=2 * 1e-4,
 			betas=self.optimizer_betas,
 			weight_decay=0.01,
