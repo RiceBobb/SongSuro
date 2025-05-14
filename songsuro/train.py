@@ -34,21 +34,22 @@ def main(
 	autoencoder_checkpoint_path: Union[Path, str],
 	checkpoint_path: Union[str, Path],
 ):
-	if not os.path.exists(str(checkpoint_path)):
-		os.makedirs(str(checkpoint_path))
-
 	data = SongsuroDataModule(
 		train_root_dir, val_root_dir, batch_size=batch_size, num_workers=num_workers
 	)
 
-	if os.path.exists(str(checkpoint_path)):
+	if not os.path.isdir(checkpoint_path):
 		model = Songsuro.load_from_checkpoint(checkpoint_path)
+		checkpoint_dir = os.path.dirname(checkpoint_path)
+		print("Load Complete")
 	else:
+		print("New Model Train")
 		model = Songsuro(80, 192, autoencoder_checkpoint_path)
+		checkpoint_dir = checkpoint_path
 
 	tqdm_cb = TQDMProgressBar(refresh_rate=10)
 	ckpt_cb = ModelCheckpoint(
-		dirpath=checkpoint_path,
+		dirpath=checkpoint_dir,
 		filename="{epoch:02d}-{step}-{val_loss:.2f}",
 		save_last=True,
 		every_n_epochs=1,
@@ -66,9 +67,24 @@ def main(
 		callbacks=[tqdm_cb, ckpt_cb, early_stop_callback],
 		check_val_every_n_epoch=1,
 		gradient_clip_val=1e9,
+		precision=32,
 	)
 	trainer.fit(model, data)
 
 
 if __name__ == "__main__":
+	# import tempfile
+	# import torch
+	# from songsuro.autoencoder.models import Autoencoder
+	#
+	# root_dir = Path(__file__).parent.parent
+	# data_dir = root_dir / "tests" / "resources" / "ai_hub_data_sample"
+	# checkpoint_dir = root_dir / "train_checkpoint"
+	#
+	# with tempfile.NamedTemporaryFile(suffix=".pt") as tmp:
+	# 	# Save mock autoencoder
+	# 	mock_autoencoder = Autoencoder()
+	# 	torch.save(mock_autoencoder.state_dict(), tmp.name)
+	#
+	# 	main(str(data_dir), str(data_dir), 4, 6, tmp.name, str(checkpoint_dir))
 	main()

@@ -66,7 +66,7 @@ class Songsuro(pl.LightningModule):
 		# prior shape : [B, latent_dim]
 		prior_loss = nn.CrossEntropyLoss()(torch.mean(latent, dim=-1), prior)
 
-		noise_scale = self.noise_level[step_idx].unsqueeze(1)
+		noise_scale = self.noise_level[step_idx].unsqueeze(1).type_as(gt_spectrogram)
 		noise_scale_sqrt = noise_scale**0.5
 
 		noise = prior.unsqueeze(-1) + torch.randn_like(
@@ -109,10 +109,15 @@ class Songsuro(pl.LightningModule):
 			hop_length=1024,
 			f_max=8000,
 		)
-		pred_mel_spectrogram = mel_spectrogram_transform(pred_result)
+		pred_mel_spectrogram = mel_spectrogram_transform(
+			pred_result.cpu()
+		)  # Transfrom only support cpu type tensor
 
 		spectrogram_mae = nn.L1Loss(reduction="mean")(
-			pred_mel_spectrogram, gt_spectrogram
+			pred_mel_spectrogram[..., : gt_spectrogram.shape[-1]].type_as(
+				gt_spectrogram
+			),
+			gt_spectrogram,
 		)
 		self.log("val_loss", spectrogram_mae, on_step=True, prog_bar=True, logger=True)
 

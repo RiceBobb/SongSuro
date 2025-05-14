@@ -94,7 +94,7 @@ class ConvReLURes(nn.Module):
 			# 이제 크기가 같으므로 더하기
 			act = act + identity
 
-		self.frac_zero_act = (act == 0.0).sum().double() / act.nelement()
+		self.frac_zero_act = (act == 0.0).sum().float() / act.nelement()
 		return act
 
 
