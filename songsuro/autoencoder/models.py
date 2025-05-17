@@ -211,12 +211,23 @@ class Autoencoder(pl.LightningModule):
 			"pred_mel": y_hat_mel,
 		}
 
+	def on_validation_start(self):
+		self.decoder.remove_weight_norm()
+
+	def on_validation_end(self):
+		self.decoder.add_weight_norm()
+
+	def on_test_start(self):
+		self.encoder.remove_weight_norm()
+
+	def on_test_end(self):
+		self.encoder.add_weight_norm()
+
 	def forward(self, batch):
 		mel = batch["mel_spectrogram"]
 
 		encoded = self.encoder(mel)
 		quantized, _ = self.quantizer(encoded)
-		self.decoder.remove_weight_norm()
 		y_hat = self.decoder(quantized)
 
 		return {
