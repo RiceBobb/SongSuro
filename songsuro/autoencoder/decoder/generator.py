@@ -67,6 +67,12 @@ class ResBlock1(torch.nn.Module):
 		for layer in self.convs2:
 			remove_weight_norm(layer)
 
+	def add_weight_norm(self):
+		for layer in self.convs1:
+			weight_norm(layer)
+		for layer in self.convs2:
+			weight_norm(layer)
+
 
 class ResBlock2(torch.nn.Module):
 	def __init__(self, channels, kernel_size=3, dilation=(1, 3)):
@@ -172,3 +178,12 @@ class Generator(torch.nn.Module):
 			layer.remove_weight_norm()
 		remove_weight_norm(self.conv_pre)
 		remove_weight_norm(self.conv_post)
+
+	def add_weight_norm(self):
+		print("Adding weight norm...")
+		for layer in self.ups:
+			weight_norm(layer)
+		for layer in self.resblocks:
+			layer.add_weight_norm()
+		weight_norm(self.conv_pre)
+		weight_norm(self.conv_post)
