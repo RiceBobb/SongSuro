@@ -127,6 +127,11 @@ class Autoencoder(pl.LightningModule):
 			logger=True,
 		)
 
+	def on_train_epoch_end(self):
+		scheduler_d, scheduler_g = self.schedulers()
+		scheduler_d.step()
+		scheduler_g.step()
+
 	def configure_optimizers(self):
 		optim_g = torch.optim.AdamW(
 			list(self.encoder.parameters())
@@ -142,7 +147,19 @@ class Autoencoder(pl.LightningModule):
 			betas=(0.8, 0.99),
 			weight_decay=0.01,
 		)
-		return optim_d, optim_g
+
+		scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
+			optim_g,
+			gamma=0.998,
+			last_epoch=self.current_epoch - 1 if self.current_epoch > 0 else -1,
+		)
+		scheduler_d = torch.optim.lr_scheduler.ExponentialLR(
+			optim_d,
+			gamma=0.998,
+			last_epoch=self.current_epoch - 1 if self.current_epoch > 0 else -1,
+		)
+
+		return [optim_d, optim_g], [scheduler_d, scheduler_g]
 
 	def validation_step(self, batch, batch_idx):
 		mel = batch["mel_spectrogram"]
