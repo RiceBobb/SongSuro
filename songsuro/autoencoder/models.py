@@ -96,6 +96,11 @@ class Autoencoder(nn.Module):
 		decoded = self.decoder(quantized)
 		return decoded
 
+	@torch.no_grad()
+	def encode(self, mel):
+		encoded = self.encoder(mel)
+		return encoded
+
 	def remove_weight_norm(self):
 		"""가중치 정규화를 제거하는 메서드 (추론 시 사용)"""
 		self.decoder.remove_weight_norm()

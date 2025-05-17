@@ -3,15 +3,17 @@ import os
 import subprocess
 import sys
 import logging
+import time
 import warnings
+import argparse
+import wandb
 
 import torch
-from torch.utils.data import random_split
-from torch.utils.tensorboard import SummaryWriter
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from songsuro.data.dataset.aihub import AIHubDataset
 from songsuro.data.loader.base import BaseDataLoader
 
 from songsuro.autoencoder.loss import reconstruction_loss
@@ -41,46 +43,47 @@ print("use_cuda: ", use_cuda)
 logger = logging.getLogger("SongSuro")
 
 
-def main(dataset, batch_size=16, port=8001):
-	"""Assume Single Node Multi GPUs Training Only"""
+def main(train_dataset, val_dataset, epochs, batch_size=16, port=8001):
 	os.environ["MASTER_ADDR"] = "localhost"
 	os.environ["MASTER_PORT"] = str(port)
-
-	# 데이터셋 분할 비율 설정
-	train_ratio = 0.8
-
-	# 데이터셋 크기 계산
-	dataset_size = len(dataset)
-	train_size = int(train_ratio * dataset_size)
-	val_size = dataset_size - train_size
-
-	# 데이터셋 분할
-	train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
 	if torch.cuda.is_available():
 		n_gpus = torch.cuda.device_count()
 		mp.spawn(
-			run, nprocs=n_gpus, args=(n_gpus, train_dataset, val_dataset, batch_size)
+			run,
+			nprocs=n_gpus,
+			args=(n_gpus, train_dataset, val_dataset, batch_size, epochs),
 		)
 	else:
-		cpurun(0, 1, train_dataset, val_dataset, batch_size)
+		cpurun(0, 1, train_dataset, val_dataset, batch_size, epochs)
 
 
 def run(
 	rank,
 	n_gpus,
+	train_dataset,
+	valid_dataset,
+	batch_size,
+	epochs=1,
 	save_dir="/root/logdir/songsuro",
 	seed=1234,
 	lr_decay=0.998,
-	epochs=1000,
-	train_dataset=None,
-	valid_dataset=None,
-	batch_size=2,
 ):
 	if rank == 0:
 		check_git_hash(save_dir)
-		writer = SummaryWriter(log_dir=save_dir)
-		writer_eval = SummaryWriter(log_dir=os.path.join(save_dir, "eval"))
+		wandb.init(
+			project="songsuro",
+			config={
+				"batch_size": batch_size,
+				"epochs": epochs,
+				# 필요한 하이퍼파라미터 추가
+			},
+		)
+		# 커스텀 x축 설정
+		wandb.define_metric("epoch")
+		wandb.define_metric("batch")
+		wandb.define_metric("train/*", step_metric="batch")
+		wandb.define_metric("val/*", step_metric="epoch")
 
 	dist.init_process_group(
 		backend="nccl", init_method="env://", world_size=n_gpus, rank=rank
@@ -129,30 +132,36 @@ def run(
 	)
 
 	for epoch in range(epoch_str, epochs + 1):
+		# 에포크 시작 시간 기록
+		start_time = time.time()
+
+		global_step = train_and_evaluate(
+			rank,
+			epoch,
+			[net_g, mpd, msd],
+			[optim_g, optim_d],
+			[scheduler_g, scheduler_d],
+			[train_loader, valid_loader],
+			logger,
+			global_step,
+		)
+
+		end_time = time.time()
+		epoch_duration = end_time - start_time
+
 		if rank == 0:
-			global_step = train_and_evaluate(
-				rank,
-				epoch,
-				[net_g, mpd, msd],
-				[optim_g, optim_d],
-				[scheduler_g, scheduler_d],
-				[train_loader, valid_loader],
-				logger,
-				[writer, writer_eval],
-				global_step,
+			lr_g = optim_g.param_groups[0]["lr"]
+			lr_d = optim_d.param_groups[0]["lr"]
+			wandb.log(
+				{
+					"epoch": epoch,
+					"scheduler/lr_g": lr_g,
+					"scheduler/lr_d": lr_d,
+					"time/epoch_duration_minutes": epoch_duration / 60,
+				},
+				step=global_step,
 			)
-		else:
-			global_step = train_and_evaluate(
-				rank,
-				epoch,
-				[net_g, mpd, msd],
-				[optim_g, optim_d],
-				[scheduler_g, scheduler_d],
-				[train_loader, None],
-				None,
-				None,
-				global_step,
-			)
+
 		scheduler_g.step()
 		scheduler_d.step()
 
@@ -170,8 +179,14 @@ def cpurun(
 ):
 	if rank == 0:
 		check_git_hash(save_dir)
-		writer = SummaryWriter(log_dir=save_dir)
-		writer_eval = SummaryWriter(log_dir=os.path.join(save_dir, "eval"))
+		wandb.init(
+			project="songsuro",
+			config={
+				"batch_size": batch_size,
+				"epochs": epochs,
+				# 필요한 하이퍼파라미터 추가
+			},
+		)
 	torch.manual_seed(seed)
 
 	train_loader = BaseDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -219,7 +234,6 @@ def cpurun(
 			[scheduler_g, scheduler_d],
 			[train_loader, valid_loader],
 			logger,
-			[writer, writer_eval],
 			global_step,
 		)
 		scheduler_g.step()
@@ -234,7 +248,6 @@ def train_and_evaluate(
 	schedulers,
 	loaders,
 	logger,
-	writers,
 	global_step,
 	lambda_recon=0.1,
 	lambda_emb=0.1,
@@ -243,17 +256,11 @@ def train_and_evaluate(
 	eval_interval=20000,
 	learning_rate=2e-4,
 	save_dir="/root/logdir/songsuro",
-	hop_size=512,
 ):
 	net_g, mpd, msd = nets
 	optim_g, optim_d = optims
 	scheduler_g, scheduler_d = schedulers
 	train_loader, eval_loader = loaders
-	if writers is not None:
-		writer, writer_eval = writers
-
-	if hasattr(train_loader, "sampler"):
-		train_loader.sampler.set_epoch(epoch)
 
 	net_g.train()
 	mpd.train()
@@ -261,7 +268,7 @@ def train_and_evaluate(
 
 	for batch_idx, data_dict in enumerate(train_loader):
 		mel = data_dict["mel_spectrogram"]
-		wav = data_dict["wav"]
+		wav = data_dict["audio"]
 
 		y_hat, commit_loss = net_g(mel)
 		gt = wav
@@ -317,17 +324,36 @@ def train_and_evaluate(
 					f"Step: {global_step}, LR: {lr:.6f}"
 				)
 				scalar_dict = {
-					"loss/total": loss_gen_all,
-					"loss/adv": loss_adv,
-					"loss/fm": loss_fm,
-					"loss/recon": loss_recon,
-					"loss/emb": loss_emb,
+					"train/loss/total": loss_gen_all,
+					"train/loss/adv": loss_adv,
+					"train/loss/fm": loss_fm,
+					"train/loss/recon": loss_recon,
+					"train/loss/emb": loss_emb,
+					"train/lr": lr,
+					"batch": global_step,
 				}
-				summarize(writer, global_step, scalars=scalar_dict)
+
+				# 진행 상황 백분율 계산
+				progress_percent = 100.0 * batch_idx / len(train_loader)
+
+				logger.info(
+					"Train Epoch: {} [{}/{} ({:.0f}%)]".format(
+						epoch, batch_idx, len(train_loader), progress_percent
+					)
+				)
+
+				# 스칼라 값에 진행 상황 추가
+				scalar_dict = {
+					"train/loss/total": loss_gen_all,
+					# 기존 로깅 항목들...
+					"progress/percent": progress_percent,
+					"batch": global_step,
+				}
+				summarize(global_step, epoch=epoch, scalars=scalar_dict)
 
 			if global_step % eval_interval == 0:
 				logger.info(["All training params(G): ", count_parameters(net_g), " M"])
-				evaluate(net_g, eval_loader, writer_eval, global_step)
+				evaluate(net_g, eval_loader, global_step)
 				save_checkpoint(
 					net_g,
 					optim_g,
@@ -351,7 +377,56 @@ def train_and_evaluate(
 	return global_step
 
 
-def evaluate(autoencoder, eval_loader, writer_eval, global_step, sample_rate=44100):
+def summarize(
+	global_step,
+	epoch=None,
+	scalars={},
+	histograms={},
+	images={},
+	audios={},
+	audio_sampling_rate=22050,
+	parameters=None,  # 모델 파라미터 추가
+):
+	log_dict = {}
+
+	# 스칼라 값 로깅
+	for k, v in scalars.items():
+		log_dict[k] = v.item() if hasattr(v, "item") else v
+
+	# 히스토그램 로깅
+	for k, v in histograms.items():
+		log_dict[k] = wandb.Histogram(v.cpu().numpy() if hasattr(v, "cpu") else v)
+
+	# 이미지 로깅
+	for k, v in images.items():
+		log_dict[k] = wandb.Image(v)
+
+	# 오디오 로깅
+	for k, v in audios.items():
+		log_dict[k] = wandb.Audio(
+			v.cpu().numpy() if hasattr(v, "cpu") else v, sample_rate=audio_sampling_rate
+		)
+
+	# 모델 파라미터 히스토그램 로깅
+	if parameters is not None:
+		for name, param in parameters:
+			if param.requires_grad and param.grad is not None:
+				log_dict[f"parameters/{name}/values"] = wandb.Histogram(
+					param.data.cpu().numpy()
+				)
+				log_dict[f"parameters/{name}/gradients"] = wandb.Histogram(
+					param.grad.data.cpu().numpy()
+				)
+
+	# 글로벌 스텝과 에포크 정보 추가
+	log_dict["global_step"] = global_step
+	if epoch is not None:
+		log_dict["epoch"] = epoch
+
+	wandb.log(log_dict, step=global_step)
+
+
+def evaluate(autoencoder, eval_loader, global_step, sample_rate=44100):
 	autoencoder.eval()
 	with torch.no_grad():
 		for batch_idx, data_dict in enumerate(eval_loader):
@@ -380,7 +455,6 @@ def evaluate(autoencoder, eval_loader, writer_eval, global_step, sample_rate=441
 			}
 
 			summarize(
-				writer=writer_eval,
 				global_step=global_step,
 				images=image_dict,
 				audios=audio_dict,
@@ -461,25 +535,6 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path)
 	)
 
 
-def summarize(
-	writer,
-	global_step,
-	scalars={},
-	histograms={},
-	images={},
-	audios={},
-	audio_sampling_rate=22050,
-):
-	for k, v in scalars.items():
-		writer.add_scalar(k, v, global_step)
-	for k, v in histograms.items():
-		writer.add_histogram(k, v, global_step)
-	for k, v in images.items():
-		writer.add_image(k, v, global_step, dataformats="HWC")
-	for k, v in audios.items():
-		writer.add_audio(k, v, global_step, audio_sampling_rate)
-
-
 def latest_checkpoint_path(dir_path, regex="G_*.pth"):
 	f_list = glob.glob(os.path.join(dir_path, regex))
 	f_list.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
@@ -541,3 +596,65 @@ def plot_spectrogram_to_numpy(spectrogram):
 	data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 	plt.close()
 	return data
+
+
+def log_gradient_norm(model, global_step, epoch=None, prefix="gradient"):
+	"""모델의 그래디언트 노름을 계산하고 로깅합니다."""
+	total_norm = 0
+	param_norms = {}
+
+	for name, param in model.named_parameters():
+		if param.requires_grad and param.grad is not None:
+			param_norm = param.grad.data.norm(2)
+			param_norms[f"{prefix}/{name}_norm"] = param_norm.item()
+			total_norm += param_norm.item() ** 2
+
+	total_norm = total_norm**0.5
+	param_norms[f"{prefix}/total_norm"] = total_norm
+
+	if epoch is not None:
+		param_norms["epoch"] = epoch
+
+	wandb.log(param_norms, step=global_step)
+
+	return total_norm
+
+
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(
+		description="Train autoencoder with custom datasets"
+	)
+	parser.add_argument(
+		"-train_dir",
+		"--train_dir",
+		required=True,
+		type=str,
+		help="Path to training data directory",
+	)
+	parser.add_argument(
+		"-val_dir",
+		"--val_dir",
+		required=True,
+		type=str,
+		help="Path to validation data directory",
+	)
+	parser.add_argument(
+		"--batch_size", type=int, default=16, help="Batch size for training"
+	)
+	parser.add_argument(
+		"--epochs", type=int, default=1, help="Number of epochs to train"
+	)
+
+	args = parser.parse_args()
+
+	# 데이터셋 로드
+	train_dataset = AIHubDataset(args.train_dir)
+	val_dataset = AIHubDataset(args.val_dir)
+
+	# train.py의 main 함수에 데이터셋과 batch_size 전달
+	main(
+		train_dataset=train_dataset,
+		val_dataset=val_dataset,
+		batch_size=args.batch_size,
+		epochs=args.epochs,
+	)
