@@ -264,7 +264,7 @@ def train_and_evaluate(
 		wav = data_dict["wav"]
 
 		y_hat, commit_loss = net_g(mel)
-		gt = wav
+		gt = wav  # gt_audio
 
 		# Discriminator training
 		y_df_hat_r, y_df_hat_g, _, _ = mpd(gt, y_hat.detach())
