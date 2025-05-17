@@ -1,5 +1,7 @@
 import torch
+from torch import nn
 import pytorch_lightning as pl
+import torchaudio
 
 from songsuro.autoencoder.decoder.decoder_loss import (
 	discriminator_loss,
@@ -120,7 +122,9 @@ class Autoencoder(pl.LightningModule):
 				"loss/recon": loss_recon,
 				"loss/emb": loss_emb,
 			},
+			on_step=True,
 			prog_bar=True,
+			logger=True,
 		)
 
 	def configure_optimizers(self):
@@ -140,11 +144,55 @@ class Autoencoder(pl.LightningModule):
 		)
 		return optim_d, optim_g
 
-	def forward(self, mel):
+	def validation_step(self, batch, batch_idx):
+		mel = batch["mel_spectrogram"]
+		y_hat = self.forward(batch)
+
+		# TODO: sample rates can be different among audio samples
+		mel_spectrogram_transform = torchaudio.transforms.MelSpectrogram(
+			sample_rate=batch["sample_rates"][0],
+			n_fft=2048,
+			hop_length=1024,
+			f_max=8000,
+		)
+		y_hat_mel = mel_spectrogram_transform(y_hat.cpu())
+
+		val_loss = nn.L1Loss(reduction="mean")(
+			y_hat_mel[..., : mel.shape[-1]].type_as(mel),
+			mel,
+		)
+		self.log("val_loss", val_loss, on_step=True, prog_bar=True, logger=True)
+
+	def test_step(self, batch, batch_idx):
+		result = self.forward(batch)
+
+		mel_spectrogram_transform = torchaudio.transforms.MelSpectrogram(
+			sample_rate=batch["sample_rates"][0],
+			n_fft=2048,
+			hop_length=1024,
+			f_max=8000,
+		)
+		y_hat_mel = mel_spectrogram_transform(result["pred_audio"].cpu())
+		mel = batch["mel_spectrogram"]
+		l1_loss = nn.L1Loss(reduction="mean")(
+			y_hat_mel[..., : mel.shape[-1]].type_as(mel),
+			mel,
+		)
+		self.log("test_loss", l1_loss, on_step=True, prog_bar=True, logger=True)
+		return l1_loss
+
+	def forward(self, batch):
+		mel = batch["mel_spectrogram"]
+
 		encoded = self.encoder(mel)
-		quantized, commit_loss = self.quantizer(encoded)
-		decoded = self.decoder(quantized)
-		return decoded, commit_loss
+		quantized, _ = self.quantizer(encoded)
+		self.decoder.remove_weight_norm()
+		y_hat = self.decoder(quantized)
+
+		return {
+			"pred_audio": y_hat,
+			"sample_rates": batch["sample_rates"],
+		}
 
 	@torch.no_grad()
 	def encode(self, mel):
@@ -156,17 +204,3 @@ class Autoencoder(pl.LightningModule):
 		quantized, _ = self.quantizer(encoded)
 		decoded = self.decoder(quantized)
 		return decoded
-
-	@torch.no_grad()
-	def sample(self, mel, device=None):
-		self.eval()
-		if device is not None:
-			mel = mel.to(device)
-		encoded = self.encoder(mel)
-		quantized, _ = self.quantizer(encoded)
-		decoded = self.decoder(quantized)
-		return decoded
-
-	def remove_weight_norm(self):
-		"""가중치 정규화를 제거하는 메서드 (추론 시 사용)"""
-		self.decoder.remove_weight_norm()
