@@ -90,6 +90,7 @@ class Autoencoder(pl.LightningModule):
 
 		optim_d.zero_grad()
 		self.manual_backward(loss_disc_all)
+		self.clip_gradients(optim_d, gradient_clip_val=None)
 		optim_d.step()
 
 		# Generator optimizer step
@@ -111,6 +112,7 @@ class Autoencoder(pl.LightningModule):
 
 		optim_g.zero_grad()
 		self.manual_backward(loss_gen_all)
+		self.clip_gradients(optim_g, gradient_clip_val=None)
 		optim_g.step()
 
 		self.log_dict(
