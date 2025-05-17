@@ -146,25 +146,32 @@ class Autoencoder(pl.LightningModule):
 
 	def validation_step(self, batch, batch_idx):
 		mel = batch["mel_spectrogram"]
-		y_hat = self.forward(batch)
+		res = self.forward(batch)
+		y_hat = res["pred_audio"].cpu()
 
 		# TODO: sample rates can be different among audio samples
 		mel_spectrogram_transform = torchaudio.transforms.MelSpectrogram(
-			sample_rate=batch["sample_rates"][0],
+			sample_rate=res["sample_rates"][0],
 			n_fft=2048,
 			hop_length=1024,
 			f_max=8000,
 		)
-		y_hat_mel = mel_spectrogram_transform(y_hat.cpu())
+		y_hat_mel = mel_spectrogram_transform(y_hat)
 
 		val_loss = nn.L1Loss(reduction="mean")(
 			y_hat_mel[..., : mel.shape[-1]].type_as(mel),
 			mel,
 		)
 		self.log("val_loss", val_loss, on_step=True, prog_bar=True, logger=True)
+		return {
+			"loss": val_loss,
+			"pred_audio": y_hat,
+			"pred_mel": y_hat_mel,
+		}
 
 	def test_step(self, batch, batch_idx):
 		result = self.forward(batch)
+		y_hat = result["pred_audio"].cpu()
 
 		mel_spectrogram_transform = torchaudio.transforms.MelSpectrogram(
 			sample_rate=batch["sample_rates"][0],
@@ -172,14 +179,18 @@ class Autoencoder(pl.LightningModule):
 			hop_length=1024,
 			f_max=8000,
 		)
-		y_hat_mel = mel_spectrogram_transform(result["pred_audio"].cpu())
+		y_hat_mel = mel_spectrogram_transform(y_hat)
 		mel = batch["mel_spectrogram"]
 		l1_loss = nn.L1Loss(reduction="mean")(
 			y_hat_mel[..., : mel.shape[-1]].type_as(mel),
 			mel,
 		)
 		self.log("test_loss", l1_loss, on_step=True, prog_bar=True, logger=True)
-		return l1_loss
+		return {
+			"loss": l1_loss,
+			"pred_audio": y_hat,
+			"pred_mel": y_hat_mel,
+		}
 
 	def forward(self, batch):
 		mel = batch["mel_spectrogram"]
@@ -190,7 +201,7 @@ class Autoencoder(pl.LightningModule):
 		y_hat = self.decoder(quantized)
 
 		return {
-			"pred_audio": y_hat,
+			"pred_audio": y_hat.squeeze(1),
 			"sample_rates": batch["sample_rates"],
 		}
 
@@ -202,5 +213,6 @@ class Autoencoder(pl.LightningModule):
 	@torch.no_grad()
 	def decode(self, encoded):
 		quantized, _ = self.quantizer(encoded)
+		self.decoder.remove_weight_norm()
 		decoded = self.decoder(quantized)
 		return decoded

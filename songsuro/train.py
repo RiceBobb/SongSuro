@@ -25,7 +25,7 @@ from songsuro.models import Songsuro
 	"--autoencoder_checkpoint_path",
 	type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
-@click.option("--checkpoint_path", type=click.Path(dir_okay=False, file_okay=True))
+@click.option("--checkpoint_path", type=click.Path(dir_okay=True, file_okay=True))
 def main(
 	train_root_dir: Union[str, Path],
 	val_root_dir: Union[str, Path],
