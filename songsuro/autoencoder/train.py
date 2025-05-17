@@ -77,9 +77,4 @@ def cli(
 
 
 if __name__ == "__main__":
-	# root_dir = Path(__file__).parent.parent.parent
-	# data_dir = root_dir / "tests" / "resources" / "ai_hub_data_sample"
-	# checkpoint_dir = root_dir / "autoencoder_checkpoint"
-	# train(str(data_dir), str(data_dir), 4, 6, checkpoint_dir)
-
 	cli()

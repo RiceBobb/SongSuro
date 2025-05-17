@@ -12,21 +12,7 @@ from songsuro.data.module import SongsuroDataModule
 from songsuro.models import Songsuro
 
 
-@click.command()
-@click.option(
-	"--train_root_dir", type=click.Path(exists=True, dir_okay=True, file_okay=False)
-)
-@click.option(
-	"--val_root_dir", type=click.Path(exists=True, dir_okay=True, file_okay=False)
-)
-@click.option("--batch_size", type=int, default=32)
-@click.option("--num_workers", type=int, default=6)
-@click.option(
-	"--autoencoder_checkpoint_path",
-	type=click.Path(exists=True, dir_okay=False, file_okay=True),
-)
-@click.option("--checkpoint_path", type=click.Path(dir_okay=True, file_okay=True))
-def main(
+def train(
 	train_root_dir: Union[str, Path],
 	val_root_dir: Union[str, Path],
 	batch_size: int,
@@ -72,19 +58,37 @@ def main(
 	trainer.fit(model, data)
 
 
+@click.command()
+@click.option(
+	"--train_root_dir", type=click.Path(exists=True, dir_okay=True, file_okay=False)
+)
+@click.option(
+	"--val_root_dir", type=click.Path(exists=True, dir_okay=True, file_okay=False)
+)
+@click.option("--batch_size", type=int, default=32)
+@click.option("--num_workers", type=int, default=6)
+@click.option(
+	"--autoencoder_checkpoint_path",
+	type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@click.option("--checkpoint_path", type=click.Path(dir_okay=True, file_okay=True))
+def main(
+	train_root_dir: Union[str, Path],
+	val_root_dir: Union[str, Path],
+	batch_size: int,
+	num_workers: int,
+	autoencoder_checkpoint_path: Union[Path, str],
+	checkpoint_path: Union[str, Path],
+):
+	train(
+		train_root_dir,
+		val_root_dir,
+		batch_size,
+		num_workers,
+		autoencoder_checkpoint_path,
+		checkpoint_path,
+	)
+
+
 if __name__ == "__main__":
-	# import tempfile
-	# import torch
-	# from songsuro.autoencoder.models import Autoencoder
-	#
-	# root_dir = Path(__file__).parent.parent
-	# data_dir = root_dir / "tests" / "resources" / "ai_hub_data_sample"
-	# checkpoint_dir = root_dir / "train_checkpoint"
-	#
-	# with tempfile.NamedTemporaryFile(suffix=".pt") as tmp:
-	# 	# Save mock autoencoder
-	# 	mock_autoencoder = Autoencoder()
-	# 	torch.save(mock_autoencoder.state_dict(), tmp.name)
-	#
-	# 	main(str(data_dir), str(data_dir), 4, 6, tmp.name, str(checkpoint_dir))
 	main()
