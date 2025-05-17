@@ -50,6 +50,7 @@ def train(
 		logger=wandb_logger,
 		callbacks=[tqdm_cb, ckpt_cb, early_stop_callback],
 		check_val_every_n_epoch=1,
+		log_every_n_steps=1,
 		precision=16,
 	)
 	trainer.fit(model, data)
@@ -62,7 +63,7 @@ def train(
 @click.option(
 	"--val_root_dir", type=click.Path(exists=True, dir_okay=True, file_okay=False)
 )
-@click.option("--batch_size", type=int, default=32)
+@click.option("--batch_size", type=int, default=4)
 @click.option("--num_workers", type=int, default=6)
 @click.option("--checkpoint_path", type=click.Path(dir_okay=True, file_okay=True))
 def cli(
