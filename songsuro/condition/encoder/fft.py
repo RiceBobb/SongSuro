@@ -56,8 +56,6 @@ class FFTEncoder(nn.Module):
 	def forward(self, x, x_lengths):
 		"""
 		Output is [batch, hidden, time(seq_len)].
-		If you want to calculate other FFT encoder results,
-		Need to calculate mean pooling because sequence length might be different.
 		"""
 		if self.num_embedding is not None:
 			x = self.emb(x) * math.sqrt(self.hidden_channels)  # [b, t, h]
