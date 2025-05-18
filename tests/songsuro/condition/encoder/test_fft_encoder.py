@@ -18,7 +18,7 @@ def test_fft_encoder_forward_shape(batch_size, seq_len, input_channel, hidden_ch
 	)
 
 	model = FFTEncoder(
-		input_channel=input_channel,
+		num_embedding=input_channel,
 		hidden_channels=hidden_channels,
 		filter_channels=hidden_channels * 4,
 		n_heads=2,
@@ -43,7 +43,7 @@ def test_fft_encoder_padding_mask():
 	x_lengths = torch.tensor([6, 10], dtype=torch.long)  # 첫 번째 샘플은 패딩 포함
 
 	model = FFTEncoder(
-		input_channel=input_channel,
+		num_embedding=input_channel,
 		hidden_channels=hidden_channels,
 		filter_channels=hidden_channels * 4,
 		n_heads=2,
@@ -68,7 +68,7 @@ def test_fft_encoder_gradients():
 	x_lengths = torch.full((batch_size,), seq_len, dtype=torch.long)
 
 	model = FFTEncoder(
-		input_channel=input_channel,
+		num_embedding=input_channel,
 		hidden_channels=hidden_channels,
 		filter_channels=hidden_channels * 4,
 		n_heads=2,
