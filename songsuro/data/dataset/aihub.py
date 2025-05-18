@@ -5,7 +5,7 @@ import os
 import torchaudio
 from torch.utils.data import Dataset
 
-from songsuro.condition.encoder.melodyU import preprocess_f0
+from songsuro.preprocess import preprocess_f0
 
 
 class AIHubDataset(Dataset):
