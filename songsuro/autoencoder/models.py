@@ -146,19 +146,19 @@ class Autoencoder(pl.LightningModule):
 		scheduler_g.step()
 
 	def configure_optimizers(self):
-		optim_g = torch.optim.AdamW(
+		optim_g = torch.optim.SGD(
 			list(self.encoder.parameters())
 			+ list(self.quantizer.parameters())
 			+ list(self.decoder.parameters()),
-			lr=2e-4,
-			betas=(0.8, 0.99),
-			weight_decay=0.01,
+			lr=0.01,  # SGD는 일반적으로 AdamW보다 더 큰 학습률 사용
+			momentum=0.9,  # 모멘텀 추가 (AdamW의 beta1과 유사한 역할)
+			weight_decay=0.01,  # 원래 weight_decay 유지
 		)
-		optim_d = torch.optim.AdamW(
+		optim_d = torch.optim.SGD(
 			list(self.mpd.parameters()) + list(self.msd.parameters()),
-			lr=2e-4,
-			betas=(0.8, 0.99),
-			weight_decay=0.01,
+			lr=0.01,  # SGD는 일반적으로 AdamW보다 더 큰 학습률 사용
+			momentum=0.9,  # 모멘텀 추가
+			weight_decay=0.01,  # 원래 weight_decay 유지
 		)
 
 		scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
