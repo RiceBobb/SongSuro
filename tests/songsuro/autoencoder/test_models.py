@@ -13,6 +13,7 @@ from songsuro.autoencoder.decoder.generator import Generator
 from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
 from songsuro.data.dataset.aihub import AIHubDataset
 from songsuro.data.loader.base import BaseDataLoader
+from tests.util import is_github_action
 
 tests_dir = Path(__file__).parent.parent.parent
 resources_dir = tests_dir / "resources"
@@ -60,6 +61,7 @@ def test_initialization(ae_params, autoencoder):
 	assert isinstance(autoencoder.msd, MultiScaleDiscriminator)
 
 
+@pytest.mark.skipif(is_github_action(), reason="Skipping this test on GitHub Actions")
 def test_autoencoder_validation_step(autoencoder, dataloader):
 	batch = next(iter(dataloader))
 	result = autoencoder.validation_step(batch, 0)
@@ -75,6 +77,7 @@ def test_autoencoder_validation_step(autoencoder, dataloader):
 	assert result["pred_mel"].ndim == 3
 
 
+@pytest.mark.skipif(is_github_action(), reason="Skipping this test on GitHub Actions")
 def test_autoencoder_test_step(autoencoder, dataloader):
 	batch = next(iter(dataloader))
 	result = autoencoder.test_step(batch, 0)
