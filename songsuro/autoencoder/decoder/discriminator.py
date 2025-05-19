@@ -182,8 +182,4 @@ class MultiScaleDiscriminator(torch.nn.Module):
 			y_d_gs.append(y_d_g)
 			fmap_gs.append(fmap_g)
 
-			# 각 판별자 처리 후 메모리 정리
-			if torch.backends.mps.is_available():
-				torch.empty_cache()
-
 		return y_d_rs, y_d_gs, fmap_rs, fmap_gs

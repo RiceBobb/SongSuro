@@ -19,9 +19,9 @@ from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
 
 
 def print_memory_stats(step_name):
-	if torch.backends.mps.is_available():
+	if torch.cuda.is_available():
 		print(
-			f"\n{step_name} - MPS 메모리 할당: {torch.mps.current_allocated_memory() / 1e9:.2f} GB"
+			f"\n{step_name} - MPS 메모리 할당: {torch.cuda.memory_allocated() / 1e9:.2f} GB"
 		)
 
 
