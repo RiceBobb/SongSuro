@@ -54,11 +54,11 @@ class ResBlock1(torch.nn.Module):
 
 	def forward(self, x):
 		for c1, c2 in zip(self.convs1, self.convs2):
-			xt = F.leaky_relu(x, LRELU_SLOPE)
+			xt = F.leaky_relu(x, LRELU_SLOPE, inplace=True)
 			xt = c1(xt)
-			xt = F.leaky_relu(xt, LRELU_SLOPE)
+			xt = F.leaky_relu(xt, LRELU_SLOPE, inplace=True)
 			xt = c2(xt)
-			x = xt + x
+			x.add_(xt)
 		return x
 
 	def remove_weight_norm(self):
@@ -96,9 +96,9 @@ class ResBlock2(torch.nn.Module):
 
 	def forward(self, x):
 		for c in self.convs:
-			xt = F.leaky_relu(x, LRELU_SLOPE)
+			xt = F.leaky_relu(x, LRELU_SLOPE, inplace=True)
 			xt = c(xt)
-			x = xt + x
+			x.add_(xt)
 		return x
 
 	def remove_weight_norm(self):

@@ -18,6 +18,13 @@ from songsuro.autoencoder.loss import reconstruction_loss
 from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
 
 
+def print_memory_stats(step_name):
+	if torch.backends.mps.is_available():
+		print(
+			f"\n{step_name} - MPS 메모리 할당: {torch.mps.current_allocated_memory() / 1e9:.2f} GB"
+		)
+
+
 class Autoencoder(pl.LightningModule):
 	def __init__(
 		self,
@@ -75,11 +82,15 @@ class Autoencoder(pl.LightningModule):
 		gt_audio = batch["audio"]
 
 		optim_d, optim_g = self.optimizers()
+		print_memory_stats("Before training step")
 
 		# Run autoencoder
 		encoded = self.encoder(mel)
+		print_memory_stats("After encoder")
 		quantized, commit_loss = self.quantizer(encoded)
+		print_memory_stats("After quantizer")
 		y_hat = self.decoder(quantized)
+		print_memory_stats("After decoder")
 
 		# Discriminator optimizer step
 		y_df_hat_r, y_df_hat_g, _, _ = self.mpd(gt_audio, y_hat.detach())
