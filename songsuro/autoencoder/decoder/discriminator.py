@@ -99,8 +99,8 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 				DiscriminatorP(2),
 				DiscriminatorP(3),
 				DiscriminatorP(5),
-				DiscriminatorP(7),
-				DiscriminatorP(11),
+				# DiscriminatorP(7),
+				# DiscriminatorP(11),
 			]
 		)
 
@@ -159,8 +159,8 @@ class MultiScaleDiscriminator(torch.nn.Module):
 		self.discriminators = nn.ModuleList(
 			[
 				DiscriminatorS(use_spectral_norm=True),
-				DiscriminatorS(),
-				DiscriminatorS(),
+				# DiscriminatorS(),
+				# DiscriminatorS(),
 			]
 		)
 		self.meanpools = nn.ModuleList(
