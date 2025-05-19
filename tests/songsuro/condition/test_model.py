@@ -12,9 +12,11 @@ resource_dir = os.path.join(root_dir, "resources")
 class TestConditionalEncoder:
 	@pytest.fixture
 	def encoder(self):
+		mock_latent_dim = 80
 		return ConditionalEncoder(
 			lyrics_input_channel=512,
 			melody_input_channel=128,
+			prior_output_dim=mock_latent_dim,
 		)
 
 	@pytest.fixture

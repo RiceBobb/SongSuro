@@ -11,14 +11,12 @@ class ConditionalEncoder(nn.Module):
 		self,
 		lyrics_input_channel: int,
 		melody_input_channel: int,
+		prior_output_dim: int,
 		hidden_size: Optional[int] = 192,
-		prior_output_dim: Optional[
-			int
-		] = 1,  # TODO: This dimension depends on enhanced condition representation dim.
 	):
 		super().__init__()
-		self.lyrics_encoder = FFTEncoder(lyrics_input_channel)
 
+		self.lyrics_encoder = FFTEncoder(lyrics_input_channel)
 		# self.melody_encoder = FFTEncoder(melody_input_channel)
 		# self.timbre_encoder = TimbreEncoder(hidden_size=hidden_size, vq_input_dim=80)
 		# self.style_encoder = StyleEncoder(hidden_size=hidden_size)
@@ -43,7 +41,6 @@ class ConditionalEncoder(nn.Module):
 
 		# if not isinstance(quantized_f0, torch.Tensor):
 		# 	quantized_f0 = torch.tensor(quantized_f0).unsqueeze(0)
-		# quantized_f0 = quantized_f0
 		# quantized_f0_lengths = torch.tensor([quantized_f0.shape[1]])
 
 		# TODO: We need to apply pitch embedding and then encode it with FFTEncoder
@@ -63,11 +60,6 @@ class ConditionalEncoder(nn.Module):
 			summation_embedding, summation_lengths
 		)
 
-		prior = self.prior_estimator(
-			# Mean pooling and squeeze the sequence dimension
-			torch.nn.functional.adaptive_avg_pool1d(
-				enhanced_condition_embedding, 1
-			).squeeze(dim=-1)
-		)
+		prior = self.prior_estimator(torch.mean(enhanced_condition_embedding, -1))
 
 		return enhanced_condition_embedding, prior
