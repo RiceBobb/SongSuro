@@ -17,16 +17,16 @@ class ResidualVectorQuantizer(nn.Module):
 		)
 
 	def forward(self, x):
-		# 입력 형태 변환: [batch, channels, seq_len] -> [batch, seq_len, channels]
-		x = x.transpose(1, 2)
+		# 메모리 최적화된 버전
+		with torch.cuda.amp.autocast():  # 혼합 정밀도 사용
+			# 불필요한 변수 할당 없이 직접 permute 사용
+			x_reshaped = x.permute(0, 2, 1).contiguous()
 
-		# ResidualVQ 적용
-		quantized, indices, commit_losses = self.rvq(x)
+			quantized, indices, commit_losses = self.rvq(x_reshaped)
 
-		# 출력 형태 복원: [batch, seq_len, channels] -> [batch, channels, seq_len]
-		quantized = quantized.transpose(1, 2)
+			# 원래 형태로 효율적으로 복원
+			quantized = quantized.permute(0, 2, 1).contiguous()
 
-		# 모든 commitment loss 합산
-		commit_loss = torch.sum(commit_losses)
+			commit_loss = torch.sum(commit_losses)
 
 		return quantized, commit_loss
