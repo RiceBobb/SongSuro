@@ -83,9 +83,7 @@ class DiscriminatorP(torch.nn.Module):
 			x = layer(x)
 			x = F.leaky_relu(x, LRELU_SLOPE, inplace=True)
 			fmap.append(x.detach().half())
-			# 주기적으로 메모리 캐시 정리
-			if i % 2 == 0:  # 2번의 반복마다 캐시 정리
-				torch.mps.empty_cache()
+
 		x = self.conv_post(x)
 		fmap.append(x.detach().half())
 		x = torch.flatten(x, 1, -1)
