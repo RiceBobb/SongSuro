@@ -65,6 +65,11 @@ class DiscriminatorP(torch.nn.Module):
 
 	def forward(self, x):
 		fmap = []
+		# 입력 텐서에 채널 차원 추가
+		if len(x.shape) == 2:
+			x = x.unsqueeze(
+				1
+			)  # [batch_size, time_steps] -> [batch_size, 1, time_steps]
 
 		# 1d to 2d
 		b, c, t = x.shape
@@ -74,12 +79,15 @@ class DiscriminatorP(torch.nn.Module):
 			t = t + n_pad
 		x = x.view(b, c, t // self.period, self.period)
 
-		for layer in self.convs:
+		for i, layer in enumerate(self.convs):
 			x = layer(x)
-			x = F.leaky_relu(x, LRELU_SLOPE)
-			fmap.append(x)
+			x = F.leaky_relu(x, LRELU_SLOPE, inplace=True)
+			fmap.append(x.detach().half())
+			# 주기적으로 메모리 캐시 정리
+			if i % 2 == 0:  # 2번의 반복마다 캐시 정리
+				torch.mps.empty_cache()
 		x = self.conv_post(x)
-		fmap.append(x)
+		fmap.append(x.detach().half())
 		x = torch.flatten(x, 1, -1)
 
 		return x, fmap
@@ -133,10 +141,13 @@ class DiscriminatorS(torch.nn.Module):
 
 	def forward(self, x):
 		fmap = []
-		for layer in self.convs:
+		for i, layer in enumerate(self.convs):
 			x = layer(x)
-			x = F.leaky_relu(x, LRELU_SLOPE)
+			x = F.leaky_relu(x, LRELU_SLOPE, inplace=True)
 			fmap.append(x)
+			# 주기적으로 메모리 캐시 정리
+			if i % 2 == 0:  # 2번의 반복마다 캐시 정리
+				torch.empty_cache()
 		x = self.conv_post(x)
 		fmap.append(x)
 		x = torch.flatten(x, 1, -1)
@@ -164,14 +175,15 @@ class MultiScaleDiscriminator(torch.nn.Module):
 		fmap_rs = []
 		fmap_gs = []
 		for i, d in enumerate(self.discriminators):
-			if i != 0:
-				y = self.meanpools[i - 1](y)
-				y_hat = self.meanpools[i - 1](y_hat)
 			y_d_r, fmap_r = d(y)
 			y_d_g, fmap_g = d(y_hat)
 			y_d_rs.append(y_d_r)
 			fmap_rs.append(fmap_r)
 			y_d_gs.append(y_d_g)
 			fmap_gs.append(fmap_g)
+
+			# 각 판별자 처리 후 메모리 정리
+			if torch.backends.mps.is_available():
+				torch.empty_cache()
 
 		return y_d_rs, y_d_gs, fmap_rs, fmap_gs
