@@ -1,6 +1,6 @@
+import torch
 from torch import nn
 from typing import Optional
-import torch
 
 from songsuro.condition.encoder.fft import FFTEncoder
 from songsuro.condition.prior_estimator import PriorEstimator
@@ -38,7 +38,7 @@ class ConditionalEncoder(nn.Module):
 
 		lyrics_lengths = torch.tensor([lyrics.shape[1]])
 		lyrics_embedding = self.lyrics_encoder(lyrics, lyrics_lengths)
-
+		# TODO: expand
 		# if not isinstance(quantized_f0, torch.Tensor):
 		# 	quantized_f0 = torch.tensor(quantized_f0).unsqueeze(0)
 		# quantized_f0_lengths = torch.tensor([quantized_f0.shape[1]])
