@@ -157,7 +157,7 @@ class MultiScaleDiscriminator(torch.nn.Module):
 		self.discriminators = nn.ModuleList(
 			[
 				DiscriminatorS(use_spectral_norm=True),
-				DiscriminatorS(),
+				# DiscriminatorS(),
 				# DiscriminatorS(),
 			]
 		)
