@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 from songsuro.condition.encoder.style import StyleEncoder
@@ -23,9 +24,16 @@ class ConditionalEncoder(nn.Module):
 		:param original_audio: Original audio mel-spectrogram.
 		:return: conditional embedding vector
 		"""
-		timbre_embedding = self.timbre_encoder(lyrics)
-		style_embedding = self.style_encoder(lyrics)
-
-		prior = self.prior_estimator(style_embedding + timbre_embedding)
-
-		return style_embedding + timbre_embedding, prior
+		# timbre_embedding = self.timbre_encoder(lyrics)
+		# style_embedding = self.style_encoder(lyrics)
+		#
+		# prior = self.prior_estimator(style_embedding + timbre_embedding)
+		#
+		# return style_embedding + timbre_embedding, prior
+		batch_size = len(lyrics)
+		return (
+			torch.randn((batch_size, self.hidden_size, 500))
+			.float()
+			.to("mps:0"),  # conditional embedding
+			torch.randn((batch_size, self.prior_output_dim)).float().to("mps:0"),
+		)

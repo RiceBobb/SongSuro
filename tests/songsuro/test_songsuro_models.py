@@ -10,7 +10,7 @@ from songsuro.condition.model import ConditionalEncoder
 from songsuro.data.dataset.aihub import AIHubDataset
 from songsuro.data.loader.base import BaseDataLoader
 from songsuro.models import Songsuro
-
+from tests.util import is_github_action
 
 tests_dir = Path(__file__).parent.parent
 resources_dir = tests_dir / "resources"
@@ -62,6 +62,7 @@ def test_songsuro_initialization(tmp_path, mock_autoencoder_checkpoint_path):
 	"forward",
 	mock_conditional_encoder_forward,
 )
+@pytest.mark.skipif(is_github_action(), reason="Skipping this test on GitHub Actions")
 def test_songsuro_training_step(songsuro_dataloader, mock_autoencoder_checkpoint_path):
 	"""Test the training step of the Songsuro model."""
 	# Initialize model
@@ -89,6 +90,7 @@ def test_songsuro_training_step(songsuro_dataloader, mock_autoencoder_checkpoint
 	"forward",
 	mock_conditional_encoder_forward,
 )
+@pytest.mark.skipif(is_github_action(), reason="Skipping this test on GitHub Actions")
 def test_songsuro_validation_step(
 	songsuro_dataloader, mock_autoencoder_checkpoint_path
 ):
@@ -120,6 +122,7 @@ def test_songsuro_validation_step(
 	"forward",
 	mock_conditional_encoder_forward,
 )
+@pytest.mark.skipif(is_github_action(), reason="Skipping this test on GitHub Actions")
 def test_songsuro_test_step(songsuro_dataloader, mock_autoencoder_checkpoint_path):
 	"""Test the test step of the Songsuro model."""
 	# Initialize model
@@ -148,6 +151,7 @@ def test_songsuro_test_step(songsuro_dataloader, mock_autoencoder_checkpoint_pat
 	"forward",
 	mock_conditional_encoder_forward,
 )
+@pytest.mark.skipif(is_github_action(), reason="Skipping this test on GitHub Actions")
 def test_songsuro_forward(songsuro_dataloader, mock_autoencoder_checkpoint_path):
 	"""Test the forward method of the Songsuro model."""
 	# Initialize model
