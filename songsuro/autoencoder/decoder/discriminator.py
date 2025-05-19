@@ -99,7 +99,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 				DiscriminatorP(2),
 				DiscriminatorP(3),
 				DiscriminatorP(5),
-				DiscriminatorP(7),
+				# DiscriminatorP(7),
 				# DiscriminatorP(11),
 			]
 		)
