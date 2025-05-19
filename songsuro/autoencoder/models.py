@@ -38,7 +38,7 @@ class Autoencoder(pl.LightningModule):
 		# generator (= decoder)
 		resblock="1",
 		resblock_kernel_sizes=[3, 7, 11],
-		upsample_rates=[16, 8, 4, 4],
+		upsample_rates=[8, 8, 2, 2],  # 16, 8, 4, 4 였음
 		upsample_initial_channel=512,
 		upsample_kernel_sizes=[16, 16, 4, 4],
 		resblock_dilation_sizes=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
