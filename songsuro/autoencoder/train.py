@@ -5,7 +5,6 @@ from typing import Union
 
 import click
 import pytorch_lightning as pl
-import torch
 from pytorch_lightning.callbacks import TQDMProgressBar, ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
@@ -55,14 +54,7 @@ def train(
 		precision=16,
 	)
 
-	torch.cuda.memory._record_memory_history(max_entries=200_000)
-	try:
-		trainer.fit(model, data)
-	except:
-		torch.cuda.memory._dump_snapshot(
-			f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-autoencoder.pickle"
-		)
-	torch.cuda.memory._record_memory_history(enabled=None)
+	trainer.fit(model, data)
 
 
 @click.command()
