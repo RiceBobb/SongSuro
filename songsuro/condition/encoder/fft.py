@@ -73,6 +73,6 @@ class FFTEncoder(nn.Module):
 
 	def sequence_mask(self, length, max_length=None):
 		if max_length is None:
-			max_length = length.max()
+			max_length = length.max()  # [batch_size x max_length]
 		x = torch.arange(max_length, dtype=length.dtype, device=length.device)
 		return x.unsqueeze(0) < length.unsqueeze(1)
