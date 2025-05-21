@@ -52,6 +52,7 @@ def train(
 		check_val_every_n_epoch=1,
 		log_every_n_steps=1,
 		precision=16,
+		strategy="ddp_sharded",
 	)
 	trainer.fit(model, data)
 

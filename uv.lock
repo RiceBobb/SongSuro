@@ -526,6 +526,18 @@ wheels = [
 ]
 
 [[package]]
+name = "fairscale"
+version = "0.4.13"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "torch", version = "2.7.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.7.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin' and sys_platform != 'linux'" },
+    { name = "torch", version = "2.7.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c1/08/b3334d7b543ac10dcb129cef4f84723ab696725512f18d69ab3a784b0bf5/fairscale-0.4.13.tar.gz", hash = "sha256:1b797825c427f5dba92253fd0d8daa574e8bd651a2423497775fab1b30cfb768", size = 266261 }
+
+[[package]]
 name = "filelock"
 version = "3.18.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2582,6 +2594,7 @@ dependencies = [
     { name = "amfm-decompy" },
     { name = "cmudict" },
     { name = "einops" },
+    { name = "fairscale" },
     { name = "g2p-en" },
     { name = "g2pk" },
     { name = "librosa" },
@@ -2615,6 +2628,7 @@ requires-dist = [
     { name = "amfm-decompy", specifier = ">=1.0.11" },
     { name = "cmudict", specifier = ">=1.0.32" },
     { name = "einops", specifier = ">=0.8.1" },
+    { name = "fairscale", specifier = ">=0.4.13" },
     { name = "g2p-en", specifier = ">=2.1.0" },
     { name = "g2pk", specifier = ">=0.9.4" },
     { name = "librosa", specifier = ">=0.11.0" },
