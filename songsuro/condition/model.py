@@ -35,9 +35,9 @@ class ConditionalEncoder(nn.Module):
 		Given original audio and the lyrics, it generates embedding vectors with timbre, lyrics, melody and style.
 
 		:param lyrics: Tokenized lyrics sequence. Should be a tensor or can be converted to one.
-		:param lyrics_lengths: Lengths of the lyrics sequences. [batch_size x Seq_len]
+		:param lyrics_lengths: Lengths of the lyrics sequences. The shape is [batch_size]
 		:param quantized_f0: Pre-processed quantized f0 data.
-		:param quantized_f0_lengths: Lengths of the quantized f0 sequences. [batch_size x max_length]
+		:param quantized_f0_lengths: Lengths of the quantized f0 sequences. The shape is [batch_size].
 		:return: conditional embedding vector and prior
 		"""
 		if not isinstance(lyrics, torch.Tensor):
