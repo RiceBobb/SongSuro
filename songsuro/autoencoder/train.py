@@ -55,6 +55,7 @@ def train(
 		precision=16,
 		devices=2,
 		strategy=FSDPStrategy(),
+		num_sanity_val_steps=0,
 	)
 	trainer.fit(model, data)
 
