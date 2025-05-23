@@ -119,6 +119,12 @@ class Autoencoder(pl.LightningModule):
 		optim_d, optim_g = self.optimizers()
 		print_memory_stats("Before training step")
 
+		self.encoder.to("cuda:0")
+		self.quantizer.to("cuda:0")
+		self.decoder.to("cuda:0")
+		self.mpd.to("cuda:1")
+		self.msd.to("cuda:1")
+
 		# Run autoencoder
 		check_model_distribution(self.encoder, "encoder")
 		check_model_distribution(self.quantizer, "quantizer")
