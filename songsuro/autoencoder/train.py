@@ -55,7 +55,6 @@ def train(
 		log_every_n_steps=1,
 		precision="bf16-true",
 		devices=2,
-		strategy="auto",
 		num_sanity_val_steps=0,
 	)
 	trainer.fit(model, data)
