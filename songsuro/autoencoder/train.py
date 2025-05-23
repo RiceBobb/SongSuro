@@ -9,7 +9,6 @@ from pytorch_lightning.callbacks import TQDMProgressBar, ModelCheckpoint, EarlyS
 from pytorch_lightning.loggers import WandbLogger
 
 # from pytorch_lightning.strategies import FSDPStrategy
-from pytorch_lightning.strategies import ModelParallelStrategy
 
 from songsuro.autoencoder.models import Autoencoder
 from songsuro.data.module import SongsuroDataModule
@@ -56,7 +55,7 @@ def train(
 		log_every_n_steps=1,
 		precision="bf16-true",
 		devices=2,
-		strategy=ModelParallelStrategy(),
+		strategy="fsdp",
 		num_sanity_val_steps=0,
 	)
 	trainer.fit(model, data)
