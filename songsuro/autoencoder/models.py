@@ -106,6 +106,12 @@ class Autoencoder(pl.LightningModule):
 		if self.msd is None:
 			self.msd = MultiScaleDiscriminator()
 
+		self.encoder = self.encoder.to(device="cuda:0")
+		self.quantizer = self.quantizer.to(device="cuda:0")
+		self.decoder = self.decoder.to(device="cuda:0")
+		self.mpd = self.mpd.to(device="cuda:1")
+		self.msd = self.msd.to(device="cuda:1")
+
 	def training_step(self, batch, batch_idx):
 		mel = batch["mel_spectrogram"]
 		gt_audio = batch["audio"]
@@ -119,6 +125,7 @@ class Autoencoder(pl.LightningModule):
 		check_model_distribution(self.decoder, "decoder")
 		check_model_distribution(self.mpd, "mpd")
 		check_model_distribution(self.msd, "msd")
+
 		encoded = self.encoder(mel)
 		print_memory_stats("After encoder")
 		quantized, commit_loss = self.quantizer(encoded)
@@ -127,11 +134,13 @@ class Autoencoder(pl.LightningModule):
 		print_memory_stats("After decoder")
 
 		# Discriminator optimizer step
-		y_df_hat_r, y_df_hat_g, _, _ = self.mpd(gt_audio, y_hat.detach())
+		y_hat2 = y_hat.to(device="cuda:1")
+		gt_audio2 = gt_audio.to(device="cuda:1")
+		y_df_hat_r, y_df_hat_g, _, _ = self.mpd(gt_audio2, y_hat2.detach())
 		loss_disc_f, _, _ = discriminator_loss(y_df_hat_r, y_df_hat_g)
-		y_ds_hat_r, y_ds_hat_g, _, _ = self.msd(gt_audio, y_hat.detach())
+		y_ds_hat_r, y_ds_hat_g, _, _ = self.msd(gt_audio2, y_hat2.detach())
 		loss_disc_s, _, _ = discriminator_loss(y_ds_hat_r, y_ds_hat_g)
-		loss_disc_all = loss_disc_s + loss_disc_f
+		loss_disc_all = loss_disc_s + loss_disc_f  # cuda:1
 
 		optim_d.zero_grad()
 		self.manual_backward(loss_disc_all)
@@ -139,8 +148,8 @@ class Autoencoder(pl.LightningModule):
 		optim_d.step()
 
 		# Generator optimizer step
-		y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = self.mpd(gt_audio, y_hat)
-		y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = self.msd(gt_audio, y_hat)
+		y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = self.mpd(gt_audio2, y_hat2)
+		y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = self.msd(gt_audio2, y_hat2)
 
 		loss_gen_f, _ = generator_loss(y_df_hat_g)
 		loss_gen_s, _ = generator_loss(y_ds_hat_g)
@@ -153,7 +162,9 @@ class Autoencoder(pl.LightningModule):
 		loss_recon = reconstruction_loss(gt_audio, y_hat) * self.lambda_recon
 		loss_emb = commit_loss * self.lambda_emb
 
-		loss_gen_all = loss_adv + loss_fm + loss_recon + loss_emb
+		loss_gen_all = (
+			loss_adv.to("cuda:0") + loss_fm.to("cuda:0") + loss_recon + loss_emb
+		)
 
 		optim_g.zero_grad()
 		self.manual_backward(loss_gen_all)
