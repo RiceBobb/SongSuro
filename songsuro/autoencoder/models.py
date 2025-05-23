@@ -25,6 +25,12 @@ def print_memory_stats(step_name):
 		)
 
 
+def check_model_distribution(model, model_name):
+	print(f"=== {model_name}현재 모델 분산 상태 ===")
+	for name, param in model.named_parameters():
+		print(f"{name}: {param.device}")
+
+
 class Autoencoder(pl.LightningModule):
 	def __init__(
 		self,
@@ -108,6 +114,11 @@ class Autoencoder(pl.LightningModule):
 		print_memory_stats("Before training step")
 
 		# Run autoencoder
+		check_model_distribution(self.encoder, "encoder")
+		check_model_distribution(self.quantizer, "quantizer")
+		check_model_distribution(self.decoder, "decoder")
+		check_model_distribution(self.mpd, "mpd")
+		check_model_distribution(self.msd, "msd")
 		encoded = self.encoder(mel)
 		print_memory_stats("After encoder")
 		quantized, commit_loss = self.quantizer(encoded)
