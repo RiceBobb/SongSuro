@@ -57,7 +57,7 @@ def train(
 		precision="bf16-true",
 		devices=2,
 		strategy=DeepSpeedStrategy(
-			stage=3,  # ZeRO Stage 3
+			stage=2,  # ZeRO Stage 2
 			offload_optimizer=True,
 			offload_parameters=True,
 			zero_allow_untested_optimizer=True,
