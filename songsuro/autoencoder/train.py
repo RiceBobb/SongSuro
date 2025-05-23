@@ -7,7 +7,7 @@ import click
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import TQDMProgressBar, ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.strategies import DeepSpeedStrategy
+from pytorch_lightning.strategies import ModelParallelStrategy
 
 # from pytorch_lightning.strategies import FSDPStrategy
 
@@ -56,11 +56,9 @@ def train(
 		log_every_n_steps=1,
 		precision="bf16-true",
 		devices=2,
-		strategy=DeepSpeedStrategy(
-			stage=2,  # ZeRO Stage 2
-			offload_optimizer=True,
-			offload_parameters=True,
-			zero_allow_untested_optimizer=True,
+		strategy=ModelParallelStrategy(
+			tensor_parallel_size=2,
+			data_parallel_size=1,
 		),
 		num_sanity_val_steps=0,
 	)
