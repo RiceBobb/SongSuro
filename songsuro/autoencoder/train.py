@@ -55,7 +55,7 @@ def train(
 		check_val_every_n_epoch=1,
 		log_every_n_steps=1,
 		precision="bf16-true",
-		devices=2,
+		devices=1,
 		strategy=ModelParallelStrategy(
 			tensor_parallel_size=2,
 			data_parallel_size=1,
