@@ -126,6 +126,13 @@ class Autoencoder(pl.LightningModule):
 		check_model_distribution(self.mpd, "mpd")
 		check_model_distribution(self.msd, "msd")
 
+		# 매 스텝마다 강제로 올바른 디바이스에 배치
+		self.encoder = self.encoder.to("cuda:0")
+		self.quantizer = self.quantizer.to("cuda:0")
+		self.decoder = self.decoder.to("cuda:0")
+		self.mpd = self.mpd.to("cuda:1")
+		self.msd = self.msd.to("cuda:1")
+
 		encoded = self.encoder(mel)
 		print_memory_stats("After encoder")
 		quantized, commit_loss = self.quantizer(encoded)
