@@ -7,6 +7,7 @@ import click
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import TQDMProgressBar, ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.strategies import DeepSpeedStrategy
 
 # from pytorch_lightning.strategies import FSDPStrategy
 
@@ -55,6 +56,11 @@ def train(
 		log_every_n_steps=1,
 		precision="bf16-true",
 		devices=2,
+		strategy=DeepSpeedStrategy(
+			stage=3,  # ZeRO Stage 3
+			offload_optimizer=True,
+			offload_parameters=True,
+		),
 		num_sanity_val_steps=0,
 	)
 	trainer.fit(model, data)
