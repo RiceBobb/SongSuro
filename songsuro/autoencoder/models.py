@@ -48,34 +48,57 @@ class Autoencoder(pl.LightningModule):
 		lambda_fm=0.1,
 	):
 		super().__init__()
+		self.encoder_in_channels = encoder_in_channels
+		self.encoder_out_channels = encoder_out_channels
+		self.num_quantizers = num_quantizers
+		self.codebook_size = codebook_size
+		self.codebook_dim = codebook_dim
+		self.resblock = resblock
+		self.resblock_kernel_sizes = resblock_kernel_sizes
+		self.upsample_rates = upsample_rates
+		self.upsample_initial_channel = upsample_initial_channel
+		self.upsample_kernel_sizes = upsample_kernel_sizes
+		self.resblock_dilation_sizes = resblock_dilation_sizes
 		self.lambda_recon = lambda_recon
 		self.lambda_emb = lambda_emb
 		self.lambda_fm = lambda_fm
 
-		self.encoder = Encoder(
-			n_in=encoder_in_channels,
-			n_out=encoder_out_channels,
-			parent_vc=None,
-		)
-		self.quantizer = ResidualVectorQuantizer(
-			input_dim=encoder_out_channels,
-			num_quantizers=num_quantizers,
-			codebook_size=codebook_size,
-			codebook_dim=codebook_dim,
-		)
-		self.decoder = Generator(
-			generator_input_channels=encoder_out_channels,
-			resblock=resblock,
-			resblock_kernel_sizes=resblock_kernel_sizes,
-			upsample_rates=upsample_rates,
-			upsample_initial_channel=upsample_initial_channel,
-			upsample_kernel_sizes=upsample_kernel_sizes,
-			resblock_dilation_sizes=resblock_dilation_sizes,
-		)
-		self.mpd = MultiPeriodDiscriminator()
-		self.msd = MultiScaleDiscriminator()
+		self.encoder = None
+		self.decoder = None
+		self.quantizer = None
+		self.mpd = None
+		self.msd = None
 
 		self.automatic_optimization = False
+
+	def configure_model(self):
+		if self.encoder is None:
+			self.encoder = Encoder(
+				n_in=self.encoder_in_channels,
+				n_out=self.encoder_out_channels,
+				parent_vc=None,
+			)
+		if self.quantizer is None:
+			self.quantizer = ResidualVectorQuantizer(
+				input_dim=self.encoder_out_channels,
+				num_quantizers=self.num_quantizers,
+				codebook_size=self.codebook_size,
+				codebook_dim=self.codebook_dim,
+			)
+		if self.decoder is None:
+			self.decoder = Generator(
+				generator_input_channels=self.encoder_out_channels,
+				resblock=self.resblock,
+				resblock_kernel_sizes=self.resblock_kernel_sizes,
+				upsample_rates=self.upsample_rates,
+				upsample_initial_channel=self.upsample_initial_channel,
+				upsample_kernel_sizes=self.upsample_kernel_sizes,
+				resblock_dilation_sizes=self.resblock_dilation_sizes,
+			)
+		if self.mpd is None:
+			self.mpd = MultiPeriodDiscriminator()
+		if self.msd is None:
+			self.msd = MultiScaleDiscriminator()
 
 	def training_step(self, batch, batch_idx):
 		mel = batch["mel_spectrogram"]
@@ -222,17 +245,17 @@ class Autoencoder(pl.LightningModule):
 			"pred_mel": y_hat_mel,
 		}
 
-	def on_validation_start(self):
-		self.decoder.remove_weight_norm()
-
-	def on_validation_end(self):
-		self.decoder.add_weight_norm()
-
-	def on_test_start(self):
-		self.encoder.remove_weight_norm()
-
-	def on_test_end(self):
-		self.encoder.add_weight_norm()
+	# def on_validation_start(self):
+	# 	self.decoder.remove_weight_norm()
+	#
+	# def on_validation_end(self):
+	# 	self.decoder.add_weight_norm()
+	#
+	# def on_test_start(self):
+	# 	self.encoder.remove_weight_norm()
+	#
+	# def on_test_end(self):
+	# 	self.encoder.add_weight_norm()
 
 	def forward(self, batch):
 		mel = batch["mel_spectrogram"]
