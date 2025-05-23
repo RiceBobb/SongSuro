@@ -54,7 +54,7 @@ def train(
 		check_val_every_n_epoch=1,
 		log_every_n_steps=1,
 		precision="bf16-true",
-		devices=1,
+		devices=2,
 		num_sanity_val_steps=0,
 	)
 	trainer.fit(model, data)
