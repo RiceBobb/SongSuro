@@ -60,6 +60,7 @@ def train(
 			stage=3,  # ZeRO Stage 3
 			offload_optimizer=True,
 			offload_parameters=True,
+			zero_allow_untested_optimizer=True,
 		),
 		num_sanity_val_steps=0,
 	)
