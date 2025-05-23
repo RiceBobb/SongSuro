@@ -51,7 +51,7 @@ def train(
 		callbacks=[tqdm_cb, ckpt_cb, early_stop_callback],
 		check_val_every_n_epoch=1,
 		log_every_n_steps=1,
-		precision=16,
+		precision="bf16-true",
 	)
 	trainer.fit(model, data)
 

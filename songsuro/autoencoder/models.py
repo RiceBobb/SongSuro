@@ -21,7 +21,7 @@ from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
 def print_memory_stats(step_name):
 	if torch.cuda.is_available():
 		print(
-			f"\n{step_name} - MPS 메모리 할당: {torch.cuda.memory_allocated() / 1e9:.2f} GB"
+			f"\n{step_name} - GPU 메모리 할당: {torch.cuda.memory_allocated() / 1e9:.2f} GB"
 		)
 
 
