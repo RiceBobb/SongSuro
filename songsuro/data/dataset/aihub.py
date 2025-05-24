@@ -5,7 +5,7 @@ import os
 import torchaudio
 from torch.utils.data import Dataset
 
-from songsuro.condition.encoder.melodyU import preprocess_f0
+from songsuro.preprocess import preprocess_f0
 
 
 class AIHubDataset(Dataset):
@@ -41,6 +41,9 @@ class AIHubDataset(Dataset):
 		f0 = preprocess_f0(audio, sample_rate)
 
 		# Lyrics & Label
+		# TODO: 악보 정보 넘기고, 국제 음성기호로 변환, 한국어만의 음가 토크나이저, hidden singer, 초성종성분리해서
+		#  tokenize 하기
+		# TODO: test code 목, 혹은 test code 강제 넘기기
 		rel_path = os.path.relpath(wav_filepath, start=self.root_dir)
 		parts = rel_path.split(os.sep)
 		label_path = os.path.join(

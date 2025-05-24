@@ -45,6 +45,7 @@ class BaseDataLoader(DataLoader):
 		result = torch.stack(padded_tensor_list)
 		return torch.squeeze(result, dim=1), length_list
 
+	# TODO: Add return lyrics tokenization and lyrics length
 	def _collate_fn(self, batch):
 		audios = list(map(lambda x: x["audio"], batch))
 		sample_rates = list(map(lambda x: x["sample_rate"], batch))
