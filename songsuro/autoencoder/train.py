@@ -8,8 +8,6 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import TQDMProgressBar, ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
-# from pytorch_lightning.strategies import FSDPStrategy
-
 from songsuro.autoencoder.models import Autoencoder
 from songsuro.data.module import SongsuroDataModule
 
@@ -56,6 +54,7 @@ def train(
 		precision="bf16-true",
 		devices=2,
 		num_sanity_val_steps=0,
+		strategy="deepspeed_stage_3",
 	)
 	trainer.fit(model, data)
 

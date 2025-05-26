@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import pytorch_lightning as pl
 import torchaudio
+from deepspeed.ops.adam import FusedAdam
 
 from songsuro.autoencoder.decoder.decoder_loss import (
 	discriminator_loss,
@@ -106,24 +107,12 @@ class Autoencoder(pl.LightningModule):
 		if self.msd is None:
 			self.msd = MultiScaleDiscriminator()
 
-		self.encoder = self.encoder.to(device="cuda:0")
-		self.quantizer = self.quantizer.to(device="cuda:0")
-		self.decoder = self.decoder.to(device="cuda:0")
-		self.mpd = self.mpd.to(device="cuda:1")
-		self.msd = self.msd.to(device="cuda:1")
-
 	def training_step(self, batch, batch_idx):
 		mel = batch["mel_spectrogram"]
 		gt_audio = batch["audio"]
 
 		optim_d, optim_g = self.optimizers()
 		print_memory_stats("Before training step")
-
-		self.encoder.to("cuda:0")
-		self.quantizer.to("cuda:0")
-		self.decoder.to("cuda:0")
-		self.mpd.to("cuda:1")
-		self.msd.to("cuda:1")
 
 		# Run autoencoder
 		check_model_distribution(self.encoder, "encoder")
@@ -132,7 +121,6 @@ class Autoencoder(pl.LightningModule):
 		check_model_distribution(self.mpd, "mpd")
 		check_model_distribution(self.msd, "msd")
 
-		mel = mel.to("cuda:0")
 		encoded = self.encoder(mel)
 		print_memory_stats("After encoder")
 		quantized, commit_loss = self.quantizer(encoded)
@@ -140,16 +128,12 @@ class Autoencoder(pl.LightningModule):
 		y_hat = self.decoder(quantized)
 		print_memory_stats("After decoder")
 
-		# Discriminator는 cuda:1에서 실행 - 데이터를 cuda:1로 이동
-		gt_audio_gpu1 = gt_audio.to("cuda:1")
-		y_hat_gpu1 = y_hat.detach().to("cuda:1")
-
 		# Discriminator optimizer step
-		y_df_hat_r, y_df_hat_g, _, _ = self.mpd(gt_audio_gpu1, y_hat_gpu1)
+		y_df_hat_r, y_df_hat_g, _, _ = self.mpd(gt_audio, y_hat)
 		loss_disc_f, _, _ = discriminator_loss(y_df_hat_r, y_df_hat_g)
-		y_ds_hat_r, y_ds_hat_g, _, _ = self.msd(gt_audio_gpu1, y_hat_gpu1)
+		y_ds_hat_r, y_ds_hat_g, _, _ = self.msd(gt_audio, y_hat)
 		loss_disc_s, _, _ = discriminator_loss(y_ds_hat_r, y_ds_hat_g)
-		loss_disc_all = loss_disc_s + loss_disc_f  # cuda:1
+		loss_disc_all = loss_disc_s + loss_disc_f
 
 		optim_d.zero_grad()
 		self.manual_backward(loss_disc_all)
@@ -157,13 +141,8 @@ class Autoencoder(pl.LightningModule):
 		optim_d.step()
 
 		# Generator optimizer step
-		y_hat_gpu1_grad = y_hat.to("cuda:1")
-		y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = self.mpd(
-			gt_audio_gpu1, y_hat_gpu1_grad
-		)
-		y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = self.msd(
-			gt_audio_gpu1, y_hat_gpu1_grad
-		)
+		y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = self.mpd(gt_audio, y_hat)
+		y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = self.msd(gt_audio, y_hat)
 
 		loss_gen_f, _ = generator_loss(y_df_hat_g)
 		loss_gen_s, _ = generator_loss(y_ds_hat_g)
@@ -173,14 +152,10 @@ class Autoencoder(pl.LightningModule):
 		loss_fm_s = feature_loss(fmap_s_r, fmap_s_g) * self.lambda_fm
 		loss_fm = loss_fm_f + loss_fm_s
 
-		# Reconstruction loss는 cuda:0에서 계산 (gt_audio를 cuda:0로 이동)
-		gt_audio_gpu0 = gt_audio.to("cuda:0")
-		loss_recon = reconstruction_loss(gt_audio_gpu0, y_hat) * self.lambda_recon
+		loss_recon = reconstruction_loss(gt_audio, y_hat) * self.lambda_recon
 		loss_emb = commit_loss * self.lambda_emb
 
-		loss_gen_all = (
-			loss_adv.to("cuda:0") + loss_fm.to("cuda:0") + loss_recon + loss_emb
-		)
+		loss_gen_all = loss_adv + loss_fm + loss_recon + loss_emb
 
 		optim_g.zero_grad()
 		self.manual_backward(loss_gen_all)
@@ -190,9 +165,9 @@ class Autoencoder(pl.LightningModule):
 		self.log_dict(
 			{
 				"loss/g_total": loss_gen_all,
-				"loss/d_total": loss_disc_all.to("cuda:0"),
-				"loss/adv": loss_adv.to("cuda:0"),
-				"loss/fm": loss_fm.to("cuda:0"),
+				"loss/d_total": loss_disc_all,
+				"loss/adv": loss_adv,
+				"loss/fm": loss_fm,
 				"loss/recon": loss_recon,
 				"loss/emb": loss_emb,
 			},
@@ -207,19 +182,19 @@ class Autoencoder(pl.LightningModule):
 		scheduler_g.step()
 
 	def configure_optimizers(self):
-		optim_g = torch.optim.SGD(
+		optim_g = FusedAdam(
 			list(self.encoder.parameters())
 			+ list(self.quantizer.parameters())
 			+ list(self.decoder.parameters()),
-			lr=0.01,  # SGD는 일반적으로 AdamW보다 더 큰 학습률 사용
-			momentum=0.9,  # 모멘텀 추가 (AdamW의 beta1과 유사한 역할)
-			weight_decay=0.01,  # 원래 weight_decay 유지
+			lr=2e-4,
+			betas=(0.8, 0.99),
+			weight_decay=0.01,
 		)
-		optim_d = torch.optim.SGD(
+		optim_d = FusedAdam(
 			list(self.mpd.parameters()) + list(self.msd.parameters()),
-			lr=0.01,  # SGD는 일반적으로 AdamW보다 더 큰 학습률 사용
-			momentum=0.9,  # 모멘텀 추가
-			weight_decay=0.01,  # 원래 weight_decay 유지
+			lr=2e-4,
+			betas=(0.8, 0.99),
+			weight_decay=0.01,
 		)
 
 		scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
