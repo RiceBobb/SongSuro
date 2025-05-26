@@ -7,7 +7,6 @@
 import torch
 from torch import nn
 from songsuro.autoencoder.encoder.vconv import VirtualConv, output_offsets
-from songsuro.autoencoder.encoder.netmisc import xavier_init
 from sys import stderr
 
 
@@ -61,7 +60,6 @@ class ConvReLURes(nn.Module):
 				raise ValueError
 			l_off, r_off = output_offsets(self.vc, self.vc)
 			self.register_buffer("residual_offsets", torch.tensor([l_off, r_off]))
-		xavier_init(self.conv)
 
 	def forward(self, x):
 		"""
