@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from vector_quantize_pytorch import ResidualVQ
+
+from songsuro.autoencoder.vq.residual_vq import ResidualVQ
 
 
 class ResidualVectorQuantizer(nn.Module):
