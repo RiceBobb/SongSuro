@@ -18,19 +18,6 @@ from songsuro.autoencoder.loss import reconstruction_loss
 from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
 
 
-def print_memory_stats(step_name):
-	if torch.cuda.is_available():
-		print(
-			f"\n{step_name} - GPU 메모리 할당: {torch.cuda.memory_allocated() / 1e9:.2f} GB"
-		)
-
-
-def check_model_distribution(model, model_name):
-	print(f"=== {model_name}현재 모델 분산 상태 ===")
-	for name, param in model.named_parameters():
-		print(f"{name}: {param.device}")
-
-
 class Autoencoder(pl.LightningModule):
 	def __init__(
 		self,
@@ -111,21 +98,11 @@ class Autoencoder(pl.LightningModule):
 		gt_audio = batch["audio"]
 
 		optim_d, optim_g = self.optimizers()
-		print_memory_stats("Before training step")
-
 		# Run autoencoder
-		check_model_distribution(self.encoder, "encoder")
-		check_model_distribution(self.quantizer, "quantizer")
-		check_model_distribution(self.decoder, "decoder")
-		check_model_distribution(self.mpd, "mpd")
-		check_model_distribution(self.msd, "msd")
 
 		encoded = self.encoder(mel)
-		print_memory_stats("After encoder")
 		quantized, commit_loss = self.quantizer(encoded)
-		print_memory_stats("After quantizer")
 		y_hat = self.decoder(quantized)
-		print_memory_stats("After decoder")
 
 		# Discriminator optimizer step
 		y_df_hat_r, y_df_hat_g, _, _ = self.mpd(gt_audio, y_hat)
