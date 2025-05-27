@@ -67,6 +67,7 @@ def train(
 			sharding_strategy="FULL_SHARD",
 			auto_wrap_policy=my_auto_wrap_policy,
 			cpu_offload=True,
+			limit_all_gathers=True,
 			activation_checkpointing_policy={
 				nn.Conv1d,
 				nn.Conv2d,
