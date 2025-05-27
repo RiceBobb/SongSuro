@@ -55,7 +55,6 @@ dependencies = [
     "transformers>=4.51.3",
     "pytorch-lightning>=2.5.1.post0",
     "fairscale>=0.4.13",
-    "deepspeed>=0.16.9",
 ]
 dynamic = ["version"]
 
