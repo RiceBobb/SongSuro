@@ -49,7 +49,7 @@ def train(
 
 	my_auto_wrap_policy = functools.partial(
 		size_based_auto_wrap_policy,
-		min_num_params=1_000_000,
+		min_num_params=10_000,
 	)
 
 	trainer = pl.Trainer(
