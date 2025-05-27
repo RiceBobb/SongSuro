@@ -56,7 +56,6 @@ def train(
 		devices=2,
 		num_sanity_val_steps=0,
 		strategy=FSDPStrategy(
-			accelerator="cuda",
 			sharding_strategy="FULL_SHARD",
 		),
 	)
