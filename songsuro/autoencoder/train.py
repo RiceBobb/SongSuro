@@ -57,6 +57,7 @@ def train(
 		num_sanity_val_steps=0,
 		strategy=FSDPStrategy(
 			sharding_strategy="FULL_SHARD",
+			cpu_offload=True,
 		),
 	)
 	trainer.fit(model, data)
