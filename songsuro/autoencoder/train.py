@@ -1,3 +1,4 @@
+import functools
 import os
 from datetime import datetime
 from pathlib import Path
@@ -8,6 +9,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import TQDMProgressBar, ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.strategies import FSDPStrategy
+from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
 from songsuro.autoencoder.models import Autoencoder
 from songsuro.data.module import SongsuroDataModule
@@ -45,6 +47,11 @@ def train(
 		monitor="val_loss", min_delta=0.00, patience=5, verbose=False, mode="min"
 	)
 
+	my_auto_wrap_policy = functools.partial(
+		size_based_auto_wrap_policy,
+		min_num_params=1_000_000,
+	)
+
 	trainer = pl.Trainer(
 		accelerator="cuda",
 		max_epochs=2,
@@ -57,6 +64,7 @@ def train(
 		num_sanity_val_steps=0,
 		strategy=FSDPStrategy(
 			sharding_strategy="FULL_SHARD",
+			auto_wrap_policy=my_auto_wrap_policy,
 			cpu_offload=True,
 		),
 	)
