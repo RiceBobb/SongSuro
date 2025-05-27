@@ -60,7 +60,7 @@ def train(
 		callbacks=[tqdm_cb, ckpt_cb, early_stop_callback],
 		check_val_every_n_epoch=1,
 		log_every_n_steps=1,
-		precision="fp16",
+		precision="16",
 		devices=2,
 		num_sanity_val_steps=0,
 		strategy=FSDPStrategy(
