@@ -9,6 +9,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import TQDMProgressBar, ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.strategies import FSDPStrategy
+from torch import nn
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
 from songsuro.autoencoder.models import Autoencoder
@@ -59,13 +60,18 @@ def train(
 		callbacks=[tqdm_cb, ckpt_cb, early_stop_callback],
 		check_val_every_n_epoch=1,
 		log_every_n_steps=1,
-		precision="bf16-true",
+		precision="fp16",
 		devices=2,
 		num_sanity_val_steps=0,
 		strategy=FSDPStrategy(
 			sharding_strategy="FULL_SHARD",
 			auto_wrap_policy=my_auto_wrap_policy,
 			cpu_offload=True,
+			activation_checkpointing_policy={
+				nn.Conv1d,
+				nn.Conv2d,
+				nn.ConvTranspose1d,
+			},
 		),
 	)
 	trainer.fit(model, data)
