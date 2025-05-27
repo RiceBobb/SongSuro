@@ -290,6 +290,6 @@ class Autoencoder(pl.LightningModule):
 	@torch.no_grad()
 	def decode(self, encoded):
 		quantized, _ = self.quantizer(encoded)
-		self.decoder.remove_weight_norm()
+		# self.decoder.remove_weight_norm()
 		decoded = self.decoder(quantized)
 		return decoded

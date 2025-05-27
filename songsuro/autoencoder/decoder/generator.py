@@ -20,16 +20,16 @@ class ResBlock1(torch.nn.Module):
 		super().__init__()
 		self.convs1 = nn.ModuleList(
 			[
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=d,
-						padding=get_padding(kernel_size, d),
-					)
+				# weight_norm(
+				Conv1d(
+					channels,
+					channels,
+					kernel_size,
+					1,
+					dilation=d,
+					padding=get_padding(kernel_size, d),
 				)
+				# )
 				for d in dilation[:3]
 			]
 		)
@@ -37,16 +37,16 @@ class ResBlock1(torch.nn.Module):
 
 		self.convs2 = nn.ModuleList(
 			[
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=1,
-						padding=get_padding(kernel_size, 1),
-					)
+				# weight_norm(
+				Conv1d(
+					channels,
+					channels,
+					kernel_size,
+					1,
+					dilation=1,
+					padding=get_padding(kernel_size, 1),
 				)
+				# )
 				for _ in range(3)
 			]
 		)
@@ -79,16 +79,16 @@ class ResBlock2(torch.nn.Module):
 		super().__init__()
 		self.convs = nn.ModuleList(
 			[
-				weight_norm(
-					Conv1d(
-						channels,
-						channels,
-						kernel_size,
-						1,
-						dilation=d,
-						padding=get_padding(kernel_size, d),
-					)
+				# weight_norm(
+				Conv1d(
+					channels,
+					channels,
+					kernel_size,
+					1,
+					dilation=d,
+					padding=get_padding(kernel_size, d),
 				)
+				# )
 				for d in dilation[:2]
 			]
 		)
@@ -121,23 +121,24 @@ class Generator(torch.nn.Module):
 		self.num_kernels = len(resblock_kernel_sizes)
 		self.num_upsamples = len(upsample_rates)
 		self.upsample_rates = upsample_rates
-		self.conv_pre = weight_norm(
-			Conv1d(generator_input_channels, upsample_initial_channel, 7, 1, padding=3)
-		)
+		self.conv_pre = Conv1d(
+			generator_input_channels, upsample_initial_channel, 7, 1, padding=3
+		)  # Original had weight norm
+
 		resblock = ResBlock1 if resblock == "1" else ResBlock2
 
 		self.ups = nn.ModuleList()
 		for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
 			self.ups.append(
-				weight_norm(
-					ConvTranspose1d(
-						upsample_initial_channel // (2**i),
-						upsample_initial_channel // (2 ** (i + 1)),
-						k,
-						u,
-						padding=(k - u) // 2,
-					)
+				# weight_norm(
+				ConvTranspose1d(
+					upsample_initial_channel // (2**i),
+					upsample_initial_channel // (2 ** (i + 1)),
+					k,
+					u,
+					padding=(k - u) // 2,
 				)
+				# )
 			)
 
 		self.resblocks = nn.ModuleList()
@@ -148,7 +149,11 @@ class Generator(torch.nn.Module):
 			):
 				self.resblocks.append(resblock(ch, k, d))
 
-		self.conv_post = weight_norm(Conv1d(ch, 1, 7, 1, padding=3))
+		self.conv_post = (
+			# weight_norm(
+			Conv1d(ch, 1, 7, 1, padding=3)
+		)
+		# )
 		self.ups.apply(init_weights)
 		self.conv_post.apply(init_weights)
 
