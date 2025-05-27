@@ -8,7 +8,6 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from torch.nn import Conv1d, AvgPool1d, Conv2d
-from torch.nn.utils import weight_norm, spectral_norm
 
 from songsuro.utils.util import get_padding
 
@@ -19,49 +18,49 @@ class DiscriminatorP(torch.nn.Module):
 	def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
 		super().__init__()
 		self.period = period
-		norm_f = weight_norm if not use_spectral_norm else spectral_norm
+		# norm_f = weight_norm if not use_spectral_norm else spectral_norm
 		self.convs = nn.ModuleList(
 			[
-				norm_f(
-					Conv2d(
-						1,
-						32,
-						(kernel_size, 1),
-						(stride, 1),
-						padding=(get_padding(5, 1), 0),
-					)
+				# norm_f(
+				Conv2d(
+					1,
+					32,
+					(kernel_size, 1),
+					(stride, 1),
+					padding=(get_padding(5, 1), 0),
+					# )
 				),
-				norm_f(
-					Conv2d(
-						32,
-						128,
-						(kernel_size, 1),
-						(stride, 1),
-						padding=(get_padding(5, 1), 0),
-					)
+				# norm_f(
+				Conv2d(
+					32,
+					128,
+					(kernel_size, 1),
+					(stride, 1),
+					padding=(get_padding(5, 1), 0),
+					# )
 				),
-				norm_f(
-					Conv2d(
-						128,
-						512,
-						(kernel_size, 1),
-						(stride, 1),
-						padding=(get_padding(5, 1), 0),
-					)
+				# norm_f(
+				Conv2d(
+					128,
+					512,
+					(kernel_size, 1),
+					(stride, 1),
+					padding=(get_padding(5, 1), 0),
+					# )
 				),
-				norm_f(
-					Conv2d(
-						512,
-						1024,
-						(kernel_size, 1),
-						(stride, 1),
-						padding=(get_padding(5, 1), 0),
-					)
+				# norm_f(
+				Conv2d(
+					512,
+					1024,
+					(kernel_size, 1),
+					(stride, 1),
+					padding=(get_padding(5, 1), 0),
+					# )
 				),
-				norm_f(Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(2, 0))),
+				Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(2, 0)),  # had norm_f
 			]
 		)
-		self.conv_post = norm_f(Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
+		self.conv_post = Conv2d(1024, 1, (3, 1), 1, padding=(1, 0))  # had norm_f
 
 	def forward(self, x):
 		fmap = []
@@ -123,19 +122,19 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 class DiscriminatorS(torch.nn.Module):
 	def __init__(self, use_spectral_norm=False):
 		super().__init__()
-		norm_f = weight_norm if not use_spectral_norm else spectral_norm
-		self.convs = nn.ModuleList(
+		# norm_f = weight_norm if not use_spectral_norm else spectral_norm
+		self.convs = nn.ModuleList(  # all convs had norm_f
 			[
-				norm_f(Conv1d(1, 128, 15, 1, padding=7)),
-				norm_f(Conv1d(128, 128, 41, 2, groups=4, padding=20)),
-				norm_f(Conv1d(128, 256, 41, 2, groups=16, padding=20)),
-				norm_f(Conv1d(256, 512, 41, 4, groups=16, padding=20)),
-				norm_f(Conv1d(512, 1024, 41, 4, groups=16, padding=20)),
-				norm_f(Conv1d(1024, 1024, 41, 1, groups=16, padding=20)),
-				norm_f(Conv1d(1024, 1024, 5, 1, padding=2)),
+				Conv1d(1, 128, 15, 1, padding=7),
+				Conv1d(128, 128, 41, 2, groups=4, padding=20),
+				Conv1d(128, 256, 41, 2, groups=16, padding=20),
+				Conv1d(256, 512, 41, 4, groups=16, padding=20),
+				Conv1d(512, 1024, 41, 4, groups=16, padding=20),
+				Conv1d(1024, 1024, 41, 1, groups=16, padding=20),
+				Conv1d(1024, 1024, 5, 1, padding=2),
 			]
 		)
-		self.conv_post = norm_f(Conv1d(1024, 1, 3, 1, padding=1))
+		self.conv_post = Conv1d(1024, 1, 3, 1, padding=1)
 
 	def forward(self, x):
 		fmap = []
