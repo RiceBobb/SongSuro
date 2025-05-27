@@ -2,7 +2,6 @@ import torch
 from torch import nn
 import pytorch_lightning as pl
 import torchaudio
-from deepspeed.ops.adam import FusedAdam
 
 from songsuro.autoencoder.decoder.decoder_loss import (
 	discriminator_loss,
@@ -182,7 +181,7 @@ class Autoencoder(pl.LightningModule):
 		scheduler_g.step()
 
 	def configure_optimizers(self):
-		optim_g = FusedAdam(
+		optim_g = torch.optim.AdamW(
 			list(self.encoder.parameters())
 			+ list(self.quantizer.parameters())
 			+ list(self.decoder.parameters()),
@@ -190,7 +189,7 @@ class Autoencoder(pl.LightningModule):
 			betas=(0.8, 0.99),
 			weight_decay=0.01,
 		)
-		optim_d = FusedAdam(
+		optim_d = torch.optim.AdamW(
 			list(self.mpd.parameters()) + list(self.msd.parameters()),
 			lr=2e-4,
 			betas=(0.8, 0.99),
