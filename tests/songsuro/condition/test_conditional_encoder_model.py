@@ -16,25 +16,25 @@ class TestConditionalEncoder:
 		params=[
 			{
 				"batch_size": 2,
-				"note_duration_seq_len": 100,
-				"max_lyrics_seq_len": 20,
+				"note_duration_seq_len": 200,
+				"max_lyrics_seq_len": 150,
 				"f0_seq_len": 200,
 			},
 			{
 				"batch_size": 4,
-				"note_duration_seq_len": 300,
-				"max_lyrics_seq_len": 30,
-				"f0_seq_len": 400,
+				"note_duration_seq_len": 400,
+				"max_lyrics_seq_len": 350,
+				"f0_seq_len": 370,
 			},
 			{
 				"batch_size": 8,
-				"note_duration_seq_len": 512,
-				"max_lyrics_seq_len": 50,
+				"note_duration_seq_len": 700,
+				"max_lyrics_seq_len": 500,
 				"f0_seq_len": 800,
 			},
 		]
 	)
-	def generate_param_test_combo(self, request):
+	def generate_param_combo(self, request):
 		return request.param
 
 	@pytest.fixture
@@ -80,7 +80,7 @@ class TestConditionalEncoder:
 		]
 
 		files = wav_files[:batch_size]
-		yield files
+		return files
 
 	def pad_sequence(self, sequences, batch_first=True, padding_value=0):
 		# You can use torch.nn.utils.rnn.pad_sequence
@@ -116,10 +116,10 @@ class TestConditionalEncoder:
 
 	# TODO: Lyrics expand to frame level
 	def test_expand_embeddings_to_frame_level(
-		self, conditional_encoder, generate_param_test_combo
+		self, conditional_encoder, generate_param_combo
 	):
-		batch_size = generate_param_test_combo["batch_size"]
-		note_duration_seq_len = generate_param_test_combo["note_duration_seq_len"]
+		batch_size = generate_param_combo["batch_size"]
+		note_duration_seq_len = generate_param_combo["note_duration_seq_len"]
 
 		sample_note_durations, sample_lengths = self.sample_note_durations(
 			batch_size, note_duration_seq_len
@@ -148,9 +148,9 @@ class TestConditionalEncoder:
 			assert expanded[b, :, :true_length].shape == (mock_hidden, true_length)
 			assert isinstance(expanded, torch.Tensor)
 
-	def test_sample_lyrics_and_lengths(self, generate_param_test_combo):
-		batch_size = generate_param_test_combo["batch_size"]
-		max_lyrics_seq_len = generate_param_test_combo["max_lyrics_seq_len"]
+	def test_sample_lyrics_and_lengths(self, generate_param_combo):
+		batch_size = generate_param_combo["batch_size"]
+		max_lyrics_seq_len = generate_param_combo["max_lyrics_seq_len"]
 
 		lyrics, lengths = self.sample_lyrics_and_lengths(batch_size, max_lyrics_seq_len)
 		assert lyrics.shape[0] == lengths.shape[0]
@@ -167,12 +167,12 @@ class TestConditionalEncoder:
 	def test_forward_with_tensors(
 		self,
 		conditional_encoder,
-		generate_param_test_combo,
+		generate_param_combo,
 	):
 		"""Test forward pass with tensor inputs."""
-		batch_size = generate_param_test_combo["batch_size"]
-		note_duration_seq_len = generate_param_test_combo["note_duration_seq_len"]
-		max_lyrics_seq_len = generate_param_test_combo["max_lyrics_seq_len"]
+		batch_size = generate_param_combo["batch_size"]
+		note_duration_seq_len = generate_param_combo["note_duration_seq_len"]
+		max_lyrics_seq_len = generate_param_combo["max_lyrics_seq_len"]
 
 		sample_lyrics, sample_lyrics_length = self.sample_lyrics_and_lengths(
 			batch_size, max_lyrics_seq_len
@@ -202,13 +202,11 @@ class TestConditionalEncoder:
 		assert condition_embedding.size(0) == batch_size
 		assert prior.size(0) == batch_size
 
-	def test_input_output_consistency(
-		self, conditional_encoder, generate_param_test_combo
-	):
+	def test_input_output_consistency(self, conditional_encoder, generate_param_combo):
 		"""Test that the same input produces the same output."""
-		batch_size = generate_param_test_combo["batch_size"]
-		max_lyrics_seq_len = generate_param_test_combo["max_lyrics_seq_len"]
-		note_duration_seq_len = generate_param_test_combo["note_duration_seq_len"]
+		batch_size = generate_param_combo["batch_size"]
+		max_lyrics_seq_len = generate_param_combo["max_lyrics_seq_len"]
+		note_duration_seq_len = generate_param_combo["note_duration_seq_len"]
 
 		sample_lyrics, sample_lyrics_length = self.sample_lyrics_and_lengths(
 			batch_size, max_lyrics_seq_len
