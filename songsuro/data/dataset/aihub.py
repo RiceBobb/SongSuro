@@ -2,25 +2,31 @@ import glob
 import json
 import os
 
+import pandas as pd
 import torchaudio
 from torch.utils.data import Dataset
 
-from songsuro.condition.encoder.melodyU import preprocess_f0
+from songsuro.preprocess import preprocess_f0
 
 
 class AIHubDataset(Dataset):
-	def __init__(self, root_dir: str):
+	def __init__(self, root_dir: str, grapheme_data_path: str):
 		"""
 
 		:param root_dir: The root directory of the AI hub dataset.
 			Have to contain '라벨링데이터' and '원천데이터' folders in the root_dir.
 		"""
+		assert grapheme_data_path.endswith(
+			".csv"
+		), "The grapheme_data_path must be a .csv file."
 		self.root_dir = root_dir
 		self.wav_file_list = []
 		for wav_file in glob.iglob(
 			os.path.join(root_dir, "원천데이터", "**", "*.wav"), recursive=True
 		):
 			self.wav_file_list.append(wav_file)
+
+		self.grapheme_df = pd.read_csv(grapheme_data_path)
 
 	def __len__(self):
 		return len(self.wav_file_list)
@@ -29,18 +35,6 @@ class AIHubDataset(Dataset):
 		wav_filepath = self.wav_file_list[idx]
 		metadata = self.extract_metadata_from_path(wav_filepath)
 		audio, sample_rate = torchaudio.load(wav_filepath)
-		mel_spectrogram_transform = torchaudio.transforms.MelSpectrogram(
-			sample_rate=sample_rate,
-			n_fft=2048,
-			hop_length=1024,
-			f_max=8000,
-		)
-		mel_spectrogram = mel_spectrogram_transform(audio)
-
-		# F0 Contour
-		f0 = preprocess_f0(audio, sample_rate)
-
-		# Lyrics & Label
 		rel_path = os.path.relpath(wav_filepath, start=self.root_dir)
 		parts = rel_path.split(os.sep)
 		label_path = os.path.join(
@@ -55,10 +49,33 @@ class AIHubDataset(Dataset):
 		)
 		with open(label_path, "r") as f:
 			label = json.load(f)
-		lyrics_list = list(
-			map(lambda x: x["lyric"] if x["lyric"] else " ", label["notes"])
+
+		# cut the original audio with the 'start_time'
+		start_time = float(label["data_info"]["start_time"])
+		audio = audio[:, int(start_time * sample_rate) :]
+
+		json_filename = label["data_info"]["csv_filename"].split(".")[0] + ".json"
+		grapheme_row = self.grapheme_df[
+			self.grapheme_df["filename"] == json_filename
+		].iloc[0]
+		phoneme = grapheme_row["phoneme"]
+		grapheme = grapheme_row["grapheme"]
+
+		mel_spectrogram_transform = torchaudio.transforms.MelSpectrogram(
+			sample_rate=sample_rate,
+			n_fft=2048,
+			hop_length=1024,
+			f_max=8000,
 		)
-		lyrics = "".join(lyrics_list)
+		mel_spectrogram = mel_spectrogram_transform(audio)
+
+		# F0 Contour
+		f0 = preprocess_f0(audio, sample_rate)
+
+		# Lyrics & Label
+		# TODO: 악보 정보 넘기고, 국제 음성기호로 변환, 한국어만의 음가 토크나이저, hidden singer, 초성종성분리해서
+		#  tokenize 하기
+		# TODO: test code 목, 혹은 test code 강제 넘기기
 
 		return {
 			"audio": audio,
@@ -66,9 +83,11 @@ class AIHubDataset(Dataset):
 			"mel_spectrogram": mel_spectrogram,
 			"audio_filepath": wav_filepath,
 			"label_filepath": label_path,
-			"lyrics": lyrics,
+			"grapheme": grapheme,
+			"phoneme": phoneme,
 			"f0": f0,
 			"metadata": metadata,
+			"start_time": start_time,  # already sliced
 		}
 
 	def extract_metadata_from_path(self, filepath):
