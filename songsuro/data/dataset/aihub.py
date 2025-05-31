@@ -29,6 +29,25 @@ class AIHubDataset(Dataset):
 		wav_filepath = self.wav_file_list[idx]
 		metadata = self.extract_metadata_from_path(wav_filepath)
 		audio, sample_rate = torchaudio.load(wav_filepath)
+		rel_path = os.path.relpath(wav_filepath, start=self.root_dir)
+		parts = rel_path.split(os.sep)
+		label_path = os.path.join(
+			self.root_dir,
+			"라벨링데이터",
+			parts[1],
+			parts[2],
+			parts[3],
+			parts[4],
+			parts[5],
+			parts[-1].split(".")[0] + ".json",
+		)
+		with open(label_path, "r") as f:
+			label = json.load(f)
+
+		# cut the original audio with the 'start_time'
+		start_time = label["data_info"]["start_time"]
+		audio = audio[:, int(start_time * sample_rate) :]
+
 		mel_spectrogram_transform = torchaudio.transforms.MelSpectrogram(
 			sample_rate=sample_rate,
 			n_fft=2048,
@@ -44,20 +63,7 @@ class AIHubDataset(Dataset):
 		# TODO: 악보 정보 넘기고, 국제 음성기호로 변환, 한국어만의 음가 토크나이저, hidden singer, 초성종성분리해서
 		#  tokenize 하기
 		# TODO: test code 목, 혹은 test code 강제 넘기기
-		rel_path = os.path.relpath(wav_filepath, start=self.root_dir)
-		parts = rel_path.split(os.sep)
-		label_path = os.path.join(
-			self.root_dir,
-			"라벨링데이터",
-			parts[1],
-			parts[2],
-			parts[3],
-			parts[4],
-			parts[5],
-			parts[-1].split(".")[0] + ".json",
-		)
-		with open(label_path, "r") as f:
-			label = json.load(f)
+
 		lyrics_list = list(
 			map(lambda x: x["lyric"] if x["lyric"] else " ", label["notes"])
 		)
@@ -72,6 +78,7 @@ class AIHubDataset(Dataset):
 			"lyrics": lyrics,
 			"f0": f0,
 			"metadata": metadata,
+			"start_time": start_time,  # already sliced
 		}
 
 	def extract_metadata_from_path(self, filepath):
