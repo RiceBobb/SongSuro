@@ -2,6 +2,7 @@ import glob
 import json
 import os
 
+import pandas as pd
 import torchaudio
 from torch.utils.data import Dataset
 
@@ -9,18 +10,23 @@ from songsuro.preprocess import preprocess_f0
 
 
 class AIHubDataset(Dataset):
-	def __init__(self, root_dir: str):
+	def __init__(self, root_dir: str, grapheme_data_path: str):
 		"""
 
 		:param root_dir: The root directory of the AI hub dataset.
 			Have to contain '라벨링데이터' and '원천데이터' folders in the root_dir.
 		"""
+		assert grapheme_data_path.endswith(
+			".csv"
+		), "The grapheme_data_path must be a .csv file."
 		self.root_dir = root_dir
 		self.wav_file_list = []
 		for wav_file in glob.iglob(
 			os.path.join(root_dir, "원천데이터", "**", "*.wav"), recursive=True
 		):
 			self.wav_file_list.append(wav_file)
+
+		self.grapheme_df = pd.read_csv(grapheme_data_path)
 
 	def __len__(self):
 		return len(self.wav_file_list)
@@ -45,8 +51,15 @@ class AIHubDataset(Dataset):
 			label = json.load(f)
 
 		# cut the original audio with the 'start_time'
-		start_time = label["data_info"]["start_time"]
+		start_time = float(label["data_info"]["start_time"])
 		audio = audio[:, int(start_time * sample_rate) :]
+
+		json_filename = label["data_info"]["csv_filename"].split(".")[0] + ".json"
+		grapheme_row = self.grapheme_df[
+			self.grapheme_df["filename"] == json_filename
+		].iloc[0]
+		phoneme = grapheme_row["phoneme"]
+		grapheme = grapheme_row["grapheme"]
 
 		mel_spectrogram_transform = torchaudio.transforms.MelSpectrogram(
 			sample_rate=sample_rate,
@@ -64,18 +77,14 @@ class AIHubDataset(Dataset):
 		#  tokenize 하기
 		# TODO: test code 목, 혹은 test code 강제 넘기기
 
-		lyrics_list = list(
-			map(lambda x: x["lyric"] if x["lyric"] else " ", label["notes"])
-		)
-		lyrics = "".join(lyrics_list)
-
 		return {
 			"audio": audio,
 			"sample_rate": sample_rate,
 			"mel_spectrogram": mel_spectrogram,
 			"audio_filepath": wav_filepath,
 			"label_filepath": label_path,
-			"lyrics": lyrics,
+			"grapheme": grapheme,
+			"phoneme": phoneme,
 			"f0": f0,
 			"metadata": metadata,
 			"start_time": start_time,  # already sliced

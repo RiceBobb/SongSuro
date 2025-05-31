@@ -17,7 +17,7 @@ class TestAIHubDataset:
 	@pytest.fixture
 	def dataset(self):
 		# Use the existing root_dir variable that contains the dataset
-		return AIHubDataset(data_dir)
+		return AIHubDataset(data_dir, os.path.join(data_dir, "train_grapheme.csv"))
 
 	def test_dataset_initialization(self, dataset):
 		"""Test that the dataset is initialized correctly."""
@@ -55,7 +55,8 @@ class TestAIHubDataset:
 		assert item["label_filepath"].endswith(".json")
 
 		# Check lyrics
-		assert isinstance(item["lyrics"], str)
+		assert isinstance(item["grapheme"], str)
+		assert isinstance(item["phoneme"], str)
 
 		# Check F0
 		assert isinstance(item["f0"], torch.Tensor)
