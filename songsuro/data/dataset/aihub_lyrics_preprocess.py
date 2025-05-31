@@ -4,6 +4,7 @@ import os
 import asyncio
 
 import click
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
 import pandas as pd
 
@@ -75,4 +76,5 @@ def cli(root_dir: str, save_path: str, batch_size: int = 32):
 
 
 if __name__ == "__main__":
+	load_dotenv()
 	cli()
