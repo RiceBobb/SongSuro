@@ -4,20 +4,20 @@ import pathlib
 import torch
 import pytest
 
-from songsuro.data.dataset.aihub import AIHubDataset
+from songsuro.data.dataset.aihub_legacy import AIHubLegacyDataset
 from songsuro.data.loader.base import BaseDataLoader
 
 
 root_dir = pathlib.PurePath(
 	os.path.dirname(os.path.realpath(__file__))
 ).parent.parent.parent
-data_dir = os.path.join(root_dir, "resources", "ai_hub_data_sample")
+data_dir = os.path.join(root_dir, "resources", "ai_hub_legacy_data_sample")
 
 
 class TestBaseDataLoader:
 	@pytest.fixture
 	def dataset(self):
-		return AIHubDataset(data_dir)
+		return AIHubLegacyDataset(data_dir)
 
 	def test_initialization(self, dataset):
 		dataloader = BaseDataLoader(dataset, batch_size=2, shuffle=False)

@@ -4,24 +4,24 @@ import pytest
 import os
 import torch
 
-from songsuro.data.dataset.aihub import AIHubDataset
+from songsuro.data.dataset.aihub_legacy import AIHubLegacyDataset
 
 
 root_dir = pathlib.PurePath(
 	os.path.dirname(os.path.realpath(__file__))
 ).parent.parent.parent
-data_dir = os.path.join(root_dir, "resources", "ai_hub_data_sample")
+data_dir = os.path.join(root_dir, "resources", "ai_hub_legacy_data_sample")
 
 
 class TestAIHubDataset:
 	@pytest.fixture
 	def dataset(self):
 		# Use the existing root_dir variable that contains the dataset
-		return AIHubDataset(data_dir)
+		return AIHubLegacyDataset(data_dir)
 
 	def test_dataset_initialization(self, dataset):
 		"""Test that the dataset is initialized correctly."""
-		assert isinstance(dataset, AIHubDataset)
+		assert isinstance(dataset, AIHubLegacyDataset)
 		assert dataset.root_dir == data_dir
 		assert len(dataset.wav_file_list) > 0
 		assert all(f.endswith(".wav") for f in dataset.wav_file_list)

@@ -3,7 +3,7 @@ from typing import Union
 
 import pytorch_lightning as pl
 
-from songsuro.data.dataset.aihub import AIHubDataset
+from songsuro.data.dataset.aihub_legacy import AIHubLegacyDataset
 from songsuro.data.loader.base import BaseDataLoader
 
 
@@ -23,8 +23,8 @@ class SongsuroDataModule(pl.LightningDataModule):
 
 	def setup(self, stage):
 		if stage == "fit":
-			self.train_dataset = AIHubDataset(self.train_root_dir)
-			self.val_dataset = AIHubDataset(self.val_root_dir)
+			self.train_dataset = AIHubLegacyDataset(self.train_root_dir)
+			self.val_dataset = AIHubLegacyDataset(self.val_root_dir)
 		if stage == "test":
 			# TODO: Implement this with our own test dataset at Feature/#49
 			raise NotImplementedError

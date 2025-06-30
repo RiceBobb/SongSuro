@@ -8,9 +8,10 @@ from torch.utils.data import Dataset
 from songsuro.condition.encoder.melodyU import preprocess_f0
 
 
-class AIHubDataset(Dataset):
+class AIHubModernDataset(Dataset):
 	def __init__(self, root_dir: str):
 		"""
+		Link: https://www.aihub.or.kr/aihubdata/data/view.do?pageIndex=2&currMenu=115&topMenu=100&%5B%25E2%2580%25A6%5DhPagePer=20&srchDataRealmCode=&aihubDataSe=data&dataSetSn=465
 
 		:param root_dir: The root directory of the AI hub dataset.
 			Have to contain '라벨링데이터' and '원천데이터' folders in the root_dir.

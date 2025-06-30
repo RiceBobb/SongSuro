@@ -11,7 +11,7 @@ from songsuro.autoencoder.models import Autoencoder
 from songsuro.autoencoder.encoder.encoder import Encoder
 from songsuro.autoencoder.decoder.generator import Generator
 from songsuro.autoencoder.quantizer import ResidualVectorQuantizer
-from songsuro.data.dataset.aihub import AIHubDataset
+from songsuro.data.dataset.aihub_legacy import AIHubLegacyDataset
 from songsuro.data.loader.base import BaseDataLoader
 from tests.util import is_github_action
 
@@ -47,7 +47,7 @@ def autoencoder(ae_params):
 
 @pytest.fixture
 def dataloader():
-	test_dataset = AIHubDataset(str(resources_dir / "ai_hub_data_sample"))
+	test_dataset = AIHubLegacyDataset(str(resources_dir / "ai_hub_legacy_data_sample"))
 	loader = BaseDataLoader(test_dataset, batch_size=2, num_workers=1)
 	return loader
 

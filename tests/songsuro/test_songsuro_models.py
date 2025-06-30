@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from songsuro.autoencoder.models import Autoencoder
 from songsuro.condition.model import ConditionalEncoder
-from songsuro.data.dataset.aihub import AIHubDataset
+from songsuro.data.dataset.aihub_legacy import AIHubLegacyDataset
 from songsuro.data.loader.base import BaseDataLoader
 from songsuro.models import Songsuro
 from tests.util import is_github_action
@@ -35,7 +35,7 @@ def mock_autoencoder_checkpoint_path():
 
 @pytest.fixture
 def songsuro_dataloader():
-	test_dataset = AIHubDataset(str(resources_dir / "ai_hub_data_sample"))
+	test_dataset = AIHubLegacyDataset(str(resources_dir / "ai_hub_legacy_data_sample"))
 	loader = BaseDataLoader(test_dataset, batch_size=2, num_workers=1)
 	return loader
 
