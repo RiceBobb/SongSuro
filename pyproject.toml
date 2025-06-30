@@ -54,7 +54,6 @@ dependencies = [
     "torchaudio>=2.7.0",
     "transformers>=4.51.3",
     "pytorch-lightning>=2.5.1.post0",
-    "openai>=1.82.1",
     "pandas>=2.2.3",
     "python-dotenv>=1.1.0",
 ]
