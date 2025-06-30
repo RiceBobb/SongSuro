@@ -80,7 +80,6 @@ def test_different_audio(different_audio):
 # 3. 모양 불일치 시 오류 발생 테스트
 def test_shape_mismatch_error(tmp_path):
 	sr = 16000
-
 	# 길이가 다른 오디오 생성
 	gt_audio = generate_sine_wave(duration=1.0, sample_rate=sr)
 	gen_audio = generate_sine_wave(duration=0.5, sample_rate=sr)
