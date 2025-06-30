@@ -1,8 +1,7 @@
 import pytest
 from unittest.mock import patch
 
-from songsuro.utils.g2p import NeuralG2P, naive_g2p
-
+from songsuro.utils.g2p import NeuralG2P, naive_g2p, normalize_lyrics
 
 KO_MANGGASONG = """
 맨까 새끼들 부들부들하구나
@@ -103,6 +102,20 @@ def test_convert_g2p_empty_lst_logs_warning():
 		mock_warning.assert_called_once_with(
 			"No phonemes were generated. Please check the input lyrics."
 		)
+
+
+def test_normalize_lyrics_ko():
+	ko_result = normalize_lyrics([KO_MANGGASONG, KO_LIJUNGDDAK], language="ko")
+	assert isinstance(ko_result, list)
+	assert all(isinstance(r, str) for r in ko_result)
+	assert len(ko_result) == 2
+
+
+def test_normalize_lyrics_en():
+	en_result = normalize_lyrics([EN_DIEWITHSMILE], language="en")
+	assert isinstance(en_result, list)
+	assert all(isinstance(r, str) for r in en_result)
+	assert len(en_result) == 1
 
 
 def validate_phonemes(phonemes, lyrics):

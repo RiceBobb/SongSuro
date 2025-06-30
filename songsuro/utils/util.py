@@ -1,5 +1,7 @@
+import asyncio
 import re
 import string
+from typing import List, Any
 
 import torch
 
@@ -98,3 +100,22 @@ def nested_map(struct, map_fn):
 	if isinstance(struct, dict):
 		return {k: nested_map(v, map_fn) for k, v in struct.items()}
 	return map_fn(struct)
+
+
+async def process_batch(tasks, batch_size: int = 64) -> List[Any]:
+	"""
+	Processes tasks in batches asynchronously.
+
+	:param tasks: A list of no-argument functions or coroutines to be executed.
+	:param batch_size: The number of tasks to process in a single batch.
+	    Default is 64.
+	:return: A list of results from the processed tasks.
+	"""
+	results = []
+
+	for i in range(0, len(tasks), batch_size):
+		batch = tasks[i : i + batch_size]
+		batch_results = await asyncio.gather(*batch)
+		results.extend(batch_results)
+
+	return results

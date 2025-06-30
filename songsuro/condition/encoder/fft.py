@@ -8,6 +8,7 @@ Glow-tts github: https://github.com/jaywalnut310/glow-tts
 import math
 import torch
 from torch import nn
+from typing import Optional
 
 from songsuro.modules.fft.attentions import Encoder
 
@@ -15,19 +16,19 @@ from songsuro.modules.fft.attentions import Encoder
 class FFTEncoder(nn.Module):
 	def __init__(
 		self,
-		input_channel,
+		num_embedding: Optional[int] = None,
 		hidden_channels=192,
 		filter_channels=768,
 		n_heads=2,
 		n_layers=4,
 		kernel_size=9,
 		p_dropout=0.0,
-		window_size=None,
+		window_size=2,
 		block_length=None,
 	):
 		super().__init__()
 
-		self.input_channel = input_channel
+		self.num_embedding = num_embedding
 		self.hidden_channels = hidden_channels
 		self.filter_channels = filter_channels
 		self.n_heads = n_heads
@@ -37,8 +38,9 @@ class FFTEncoder(nn.Module):
 		self.window_size = window_size
 		self.block_length = block_length
 
-		self.emb = nn.Embedding(input_channel, hidden_channels)
-		nn.init.normal_(self.emb.weight, 0.0, hidden_channels**-0.5)
+		if num_embedding is not None:
+			self.emb = nn.Embedding(num_embedding, hidden_channels)
+			nn.init.normal_(self.emb.weight, 0.0, hidden_channels**-0.5)
 
 		self.encoder = Encoder(
 			hidden_channels,
@@ -52,8 +54,15 @@ class FFTEncoder(nn.Module):
 		)
 
 	def forward(self, x, x_lengths):
-		x = self.emb(x) * math.sqrt(self.hidden_channels)  # [b, t, h]
-		x = torch.transpose(x, 1, -1)  # [batch, hidden, time(seq_len)]
+		"""
+		Output is [batch, hidden, time(seq_len)].
+		"""
+		if self.num_embedding is not None:
+			x = self.emb(x) * math.sqrt(self.hidden_channels)  # [b, t, h]
+			x = torch.transpose(x, 1, -1)  # [batch, hidden, time(seq_len)]
+		else:
+			x = x * math.sqrt(self.hidden_channels)  # [b, t, h]
+
 		# mask for padding
 		x_mask = torch.unsqueeze(self.sequence_mask(x_lengths, x.size(2)), 1).to(
 			x.dtype
@@ -64,6 +73,6 @@ class FFTEncoder(nn.Module):
 
 	def sequence_mask(self, length, max_length=None):
 		if max_length is None:
-			max_length = length.max()
+			max_length = length.max()  # [batch_size x max_length]
 		x = torch.arange(max_length, dtype=length.dtype, device=length.device)
 		return x.unsqueeze(0) < length.unsqueeze(1)

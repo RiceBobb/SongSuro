@@ -1,4 +1,5 @@
 import os
+from typing import Literal, List
 
 import amfm_decompy.basic_tools as basic
 import amfm_decompy.pYAAPT as pYAAPT
@@ -9,6 +10,10 @@ import torch
 import torchaudio
 from librosa import feature as lf
 from scipy import stats
+from torchaudio.pipelines import MMS_FA as bundle
+from tqdm import tqdm
+
+from songsuro.utils.g2p import normalize_lyrics
 
 
 def load_audio(path, sr: int = 24_000):
@@ -224,3 +229,64 @@ def mode_window_filter(arr: np.ndarray, window_size: int):
 
 
 # Preprocess F0 : extract F0 => hz_to_mel => quantize_mel_scale => hz to frame (최빈값 필터)
+def preprocess_f0(waveform: torch.Tensor, sample_rate: int):
+	LEVELS = 127
+	MEL_MIN_VAL = 133
+	MEL_MAX_VAL = 571
+
+	trimmed_waveform = trim_silence(waveform, sample_rate)
+	pitch = extract_f0_from_tensor(trimmed_waveform, sample_rate)
+
+	mel_f0 = hz_to_mel_torch(pitch)
+	if mel_f0.ndim > 1:
+		mel_f0 = torch.mean(mel_f0, dim=0)
+
+	quantized_f0 = quantize_mel_scale_torch(
+		mel_f0, levels=LEVELS, min_val=MEL_MIN_VAL, max_val=MEL_MAX_VAL
+	)
+	return quantized_f0
+
+
+def align_lyrics(
+	waveforms: List[torch.Tensor],
+	sample_rate: int,
+	lyrics_list: List[str],
+	langauge: Literal["en", "ko"] = "ko",
+	device: str = "cuda",
+):
+	lyrics_list = normalize_lyrics(lyrics_list, language=langauge)
+	tokens = list(map(lambda x: x.split(), lyrics_list))
+	if sample_rate != bundle.sample_rate:
+		resampled_waveforms = []
+		for waveform in waveforms:
+			resampled_waveforms.append(
+				torchaudio.functional.resample(
+					waveform, sample_rate, bundle.sample_rate
+				)
+			)
+	else:
+		resampled_waveforms = waveforms
+
+	model = bundle.get_model().to(device)
+	aligner = bundle.get_aligner()
+	tokenizer = bundle.get_tokenizer()
+	assert len(resampled_waveforms) == len(
+		tokens
+	), "Number of waveforms and tokens must match."
+	emissions, token_spans = [], []
+	with torch.inference_mode():
+		for waveform, token in tqdm(zip(resampled_waveforms, tokens)):
+			emission, _ = model(waveform.to(device))
+			token_span = aligner(emission[0], tokenizer(token))
+			emissions.append(emission)
+			token_spans.append(token_span)
+
+	return emissions, token_spans
+
+
+def stereo_to_mono_converter(signal):
+	# Check if there are multiple channels
+	if signal.shape[0] > 1:
+		# Average all channels to create mono
+		signal = torch.mean(signal, dim=0, keepdim=True)
+	return signal

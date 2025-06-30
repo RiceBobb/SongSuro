@@ -33,7 +33,7 @@ class Encoder(nn.Module):
 		n_layers=4,
 		kernel_size=9,
 		p_dropout=0.0,
-		window_size=None,
+		window_size=2,
 		block_length=None,
 		**kwargs,
 	):
@@ -96,7 +96,7 @@ class MultiHeadAttention(nn.Module):
 		channels,
 		out_channels,
 		n_heads,
-		window_size=None,
+		window_size=4,
 		heads_share=True,
 		p_dropout=0.0,
 		block_length=None,

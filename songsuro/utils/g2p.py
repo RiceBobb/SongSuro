@@ -1,6 +1,8 @@
 import logging
+import re
 from typing import List, Literal
 
+import uroman as ur
 from tqdm import tqdm
 from transformers import T5ForConditionalGeneration, AutoTokenizer
 from g2p_en import G2p as G2pEn
@@ -72,3 +74,34 @@ def naive_g2p(lyrics_list: List[str], language: str = "ko") -> List[str]:
 		logger.warning("No phonemes were generated. Please check the input lyrics.")
 
 	return phonemes_lst
+
+
+def normalize_lyrics(lyrics_list: List[str], language: str = "ko") -> List[str]:
+	"""
+	Normalize the lyrics to torchaudio style (specifically for MMS_FA model).
+
+	:param lyrics_list: A list of lyrics to normalize.
+	:param language: Language of the lyrics, either 'ko' for Korean or 'en' for English.
+	:return: The normalized lyrics list.
+	"""
+	if language == "ko":
+		phonemes_list = naive_g2p(lyrics_list, language=language)
+	else:
+		phonemes_list = lyrics_list
+
+	# 2. Romanize Korean phonemes
+	uroman = ur.Uroman()
+	romanized_list = [uroman.romanize_string(p) for p in phonemes_list]
+
+	# 3. Normalize the romanized text
+	normalized_list = [normalize_uroman(r) for r in romanized_list]
+
+	return normalized_list
+
+
+def normalize_uroman(text):
+	text = text.lower()
+	text = text.replace("’", "'")
+	text = re.sub("([^a-z' ])", " ", text)
+	text = re.sub(" +", " ", text)
+	return text.strip()
