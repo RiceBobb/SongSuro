@@ -22,7 +22,10 @@ from songsuro.preprocess import (
 	trim_silence,
 	quantize_mel_scale_torch,
 	preprocess_f0,
+	align_lyrics,
+	stereo_to_mono_converter,
 )
+from tests.util import is_github_action
 
 root_dir = pathlib.PurePath(os.path.dirname(os.path.realpath(__file__))).parent
 resource_dir = os.path.join(root_dir, "resources")
@@ -293,3 +296,17 @@ class TestAudioProcessing:
 		assert isinstance(frame_quantized_f0, torch.Tensor)
 		assert frame_quantized_f0.ndim == 1
 		assert frame_quantized_f0.shape[0] < 2000
+
+	@pytest.mark.skipif(
+		is_github_action(), reason="Skipping this test on GitHub Actions"
+	)
+	def test_align_lyrics(self, sample_audio_file):
+		waveform, fs = torchaudio.load(sample_audio_file)
+		waveform = stereo_to_mono_converter(waveform)
+		dinos_lyrics = "다이노스 도태훈 안타 오 오오오 오 다이노스 도태훈 안타 오 오오오 오 다이노스 도태훈 안타 오 오오오 오 다이노스 도태훈 안타 오 오오오 오"
+		emission, token_span = align_lyrics([waveform], fs, [dinos_lyrics], "ko", "cpu")
+
+		assert len(emission) == 1
+		assert len(token_span) == 1
+		assert isinstance(emission[0], torch.Tensor)
+		assert isinstance(token_span[0], list)
