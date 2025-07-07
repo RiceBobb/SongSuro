@@ -1,6 +1,15 @@
+# -----------------------------------------------------------
+# This code is adapted from CARGAN referenced by HiddenSinger: https://github.com/descriptinc/cargan/blob/master/cargan/evaluate/objective/metrics.py
+# Original repository: https://github.com/descriptinc/cargan
+# -----------------------------------------------------------
+
 import torch
 import torchcrepe
-from sklearn.metrics import f1_score
+
+
+###############################################################################
+# Pitch metrics
+###############################################################################
 
 
 def compute_spectrogram_mae(
@@ -54,61 +63,94 @@ def compute_pitch_periodicity(
 		pitch_gt.shape == periodicity_gt.shape
 	), "Pitch and periodicity shapes do not match."
 
-	# Voiced mask: periodicity > threshold (threshold는 데이터에 따라 조정)
-	voiced_mask = (periodicity_gt > threshold)[0]
-	# Pitch error (cent 단위, voiced 구간만)
-	pitch_error = torch.sqrt(
-		torch.mean(
-			(
-				1200
-				* (
-					torch.log2(pitch_gt[0, voiced_mask])
-					- torch.log2(pitch_gen[0, voiced_mask])
-				)
-			)
-			** 2
+	return (pitch_gt, periodicity_gt, pitch_gen, periodicity_gen)
+
+
+class PitchEvaluator:
+	def __init__(self):
+		self.threshold = torchcrepe.threshold.Hysteresis()
+		self.reset()
+
+	def __call__(self):
+		pitch_rmse = torch.sqrt(self.pitch_total / self.voiced)
+		periodicity_rmse = torch.sqrt(self.periodicity_total / self.count)
+		precision = self.true_positives / (self.true_positives + self.false_positives)
+		recall = self.true_positives / (self.true_positives + self.false_negatives)
+		f1 = 2 * precision * recall / (precision + recall)
+		return {
+			"pitch": pitch_rmse.item(),
+			"periodicity": periodicity_rmse.item(),
+			"f1": f1.item(),
+			"precision": precision.item(),
+			"recall": recall.item(),
+		}
+
+	def reset(self):
+		self.count = 0
+		self.voiced = 0
+		self.pitch_total = 0.0
+		self.periodicity_total = 0.0
+		self.true_positives = 0
+		self.false_positives = 0
+		self.false_negatives = 0
+
+	def update(self, true_pitch, true_periodicity, pred_pitch, pred_periodicity):
+		# Threshold
+		true_threshold = self.threshold(true_pitch, true_periodicity)
+		pred_threshold = self.threshold(pred_pitch, pred_periodicity)
+		true_voiced = ~torch.isnan(true_threshold)
+		pred_voiced = ~torch.isnan(pred_threshold)
+
+		# Update periodicity rmse
+		self.count += true_pitch.shape[1]
+		self.periodicity_total += (true_periodicity - pred_periodicity).pow(2).sum()
+
+		# Update pitch rmse
+		voiced = true_voiced & pred_voiced
+		self.voiced += voiced.sum()
+		difference_cents = 1200 * (
+			torch.log2(true_pitch[voiced]) - torch.log2(pred_pitch[voiced])
 		)
-	).item()
-	# Periodicity error (voiced 구간만)
-	periodicity_error = torch.sqrt(
-		torch.mean(
-			(periodicity_gt[0, voiced_mask] - periodicity_gen[0, voiced_mask]) ** 2
-		)
-	).item()
-	return (
-		pitch_error,
-		periodicity_error,
-		voiced_mask,
-		periodicity_gt,
-		periodicity_gen,
-	)
+		self.pitch_total += difference_cents.pow(2).sum()
+
+		# Update voiced/unvoiced precision and recall
+		self.true_positives += (true_voiced & pred_voiced).sum()
+		self.false_positives += (~true_voiced & pred_voiced).sum()
+		self.false_negatives += (true_voiced & ~pred_voiced).sum()
 
 
-def compute_vuv_f1(periodicity_gt, periodicity_gen, threshold=0.5):
-	# Voiced/unvoiced 판정
-	vuv_gt = (periodicity_gt > threshold).cpu().numpy().astype(int)
-	vuv_syn = (periodicity_gen > threshold).cpu().numpy().astype(int)
-	# F1 score 계산
-	f1 = f1_score(vuv_gt, vuv_syn)
-	return f1
+###############################################################################
+# Waveform metrics
+###############################################################################
 
 
-"""
-Sample usage in melody evaluation:
+class RMSE:
+	def __init__(self):
+		self.reset()
 
-def evaluate(wav_mel_gt: torch.tensor = None, wav_mel_gen: torch.tensor = None, device="cpu"):
-    # 스펙트로그램 MAE
-    mae = compute_spectrogram_mae(wav_mel_gt, wav_mel_gen)
-    # Pitch, Periodicity, V/UV
-    pitch_error, periodicity_error, voiced_mask, periodicity_gt, periodicity_gen = (
-        compute_pitch_periodicity(wav_mel_gt, wav_mel_gen, device=device)
-    )
-    # V/UV F1
-    f1 = compute_vuv_f1(periodicity_gt[0], periodicity_gen[0])
-    return {
-        "Spectrogram_MAE": mae,
-        "Pitch_Error": pitch_error,
-        "Periodicity_Error": periodicity_error,
-        "VUV_F1": f1,
-    }
-"""
+	def __call__(self):
+		return torch.sqrt(self.total / self.count).item()
+
+	def reset(self):
+		self.count = 0
+		self.total = 0.0
+
+	def update(self, x, y):
+		self.count += x.numel()
+		self.total += ((x - y) ** 2).sum()
+
+
+class L1:
+	def __init__(self):
+		self.reset()
+
+	def __call__(self):
+		return (self.total / self.count).item()
+
+	def reset(self):
+		self.count = 0
+		self.total = 0.0
+
+	def update(self, x, y):
+		self.count += x.numel()
+		self.total += torch.abs(x - y).sum()
