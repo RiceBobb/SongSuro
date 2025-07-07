@@ -66,10 +66,6 @@ class MelodyLoss:
 			periodicity_gt.shape == periodicity_gen.shape
 		), "Periodicity shape do not match."
 
-		# # 길이 맞추기
-		# min_len = min(pitch_gt.shape[-1], pitch_syn.shape[-1])
-		# pitch_gt, pitch_syn = pitch_gt[..., :min_len], pitch_syn[..., :min_len]
-		# periodicity_gt, periodicity_syn = periodicity_gt[..., :min_len], periodicity_syn[..., :min_len]
 		assert (
 			pitch_gt.shape == periodicity_gt.shape
 		), "Pitch and periodicity shapes do not match."
