@@ -23,7 +23,7 @@ class MelodyLoss:
 
 		assert S_gt.shape == S_syn.shape, "Spectrogram shapes do not match."
 
-		# # 길이 맞추기
+		# # 길이 맞추기 -> why? is it necessary?
 		# min_len = min(S_gt.shape[-1], S_syn.shape[-1])
 		# S_gt, S_syn = S_gt[..., :min_len], S_syn[..., :min_len]
 
