@@ -54,6 +54,9 @@ dependencies = [
     "torchaudio>=2.7.0",
     "transformers>=4.51.3",
     "pytorch-lightning>=2.5.1.post0",
+    "openai>=1.93.0",
+    "openai-whisper>=20250625",
+    "ffmpeg>=1.4",
 ]
 dynamic = ["version"]
 
