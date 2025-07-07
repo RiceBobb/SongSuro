@@ -23,10 +23,6 @@ class MelodyLoss:
 
 		assert S_gt.shape == S_syn.shape, "Spectrogram shapes do not match."
 
-		# # 길이 맞추기 -> why? is it necessary?
-		# min_len = min(S_gt.shape[-1], S_syn.shape[-1])
-		# S_gt, S_syn = S_gt[..., :min_len], S_syn[..., :min_len]
-
 		# MAE 계산
 		mae = torch.mean(torch.abs(S_gt - S_syn)).item()
 		return mae
@@ -40,8 +36,6 @@ class MelodyLoss:
 		threshold=0.5,
 		device="cpu",
 	):
-		# TODO: 리샘플은 왜 나와? 논문대로 구현한게 맞나 validation
-
 		wav_gt = torch.from_numpy(self.wav_gt).float().unsqueeze(0).to(device)
 		wav_gen = torch.from_numpy(self.wav_gen).float().unsqueeze(0).to(device)
 
@@ -76,6 +70,9 @@ class MelodyLoss:
 		# min_len = min(pitch_gt.shape[-1], pitch_syn.shape[-1])
 		# pitch_gt, pitch_syn = pitch_gt[..., :min_len], pitch_syn[..., :min_len]
 		# periodicity_gt, periodicity_syn = periodicity_gt[..., :min_len], periodicity_syn[..., :min_len]
+		assert (
+			pitch_gt.shape == periodicity_gt.shape
+		), "Pitch and periodicity shapes do not match."
 
 		# Voiced mask: periodicity > threshold (threshold는 데이터에 따라 조정)
 		voiced_mask = (periodicity_gt > threshold)[0]
