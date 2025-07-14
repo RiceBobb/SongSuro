@@ -11,11 +11,8 @@ import torchcrepe
 # Pitch metrics
 ###############################################################################
 
-# TODO: How to use PitchEvaluator in the evaluation pipeline? Find a way to integrate it with the evaluation loop. or not loop.
-# TODO: I don't know why this is in the loop.
 
-
-def compute_spectrogram_mae(
+def compute_mel_spectrogram_mae(
 	wav_mel_gt: torch.tensor = None, wav_mel_gen: torch.tensor = None
 ):
 	assert wav_mel_gt.shape == wav_mel_gen.shape, "Spectrogram shapes do not match."
