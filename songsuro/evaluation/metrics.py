@@ -20,7 +20,6 @@ def compute_mel_spectrogram_mae(
 	return mae
 
 
-# TODO: extract pitch and periodicity exist in cargan/preprocess.pitch, but it is not used in the evaluation pipeline.
 def compute_pitch_periodicity(
 	wav_mel_gt: torch.tensor = None,
 	wav_mel_gen: torch.tensor = None,
