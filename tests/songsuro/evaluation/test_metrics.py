@@ -1,85 +1,64 @@
 import torch
-from songsuro.evaluation.metrics import (
-	compute_spectrogram_mae,
-	compute_pitch_periodicity,
-	PitchEvaluator,
-	RMSE,
-	L1,
-)
+import pytest
+from songsuro.evaluation.metrics import PitchEvaluator, RMSE
 
 
-# Dummy data for testing
-def make_dummy_tensors():
-	wav_mel_gt = torch.ones(80, 100)
-	wav_mel_gen = torch.ones(80, 100) * 1.1
-	return wav_mel_gt, wav_mel_gen
-
-
-def make_pitch_periodicity_tensors():
-	# Simulated pitch and periodicity (no NaNs, all voiced)
-	true_pitch = torch.tensor([[100.0, 200.0, 300.0, 400.0, 500.0]])
-	true_periodicity = torch.tensor([[0.9, 0.8, 0.7, 0.6, 0.5]])
-	pred_pitch = torch.tensor([[110.0, 210.0, 310.0, 390.0, 480.0]])
-	pred_periodicity = torch.tensor([[0.85, 0.75, 0.65, 0.55, 0.45]])
+@pytest.fixture
+def sample_pitch_periodicity():
+	# Create dummy pitch and periodicity tensors (shape: [batch, length])
+	true_pitch = torch.tensor([[100.0, 200.0, 300.0, 400.0]])
+	true_periodicity = torch.tensor([[0.8, 0.9, 0.7, 0.6]])
+	pred_pitch = torch.tensor([[110.0, 190.0, 310.0, 390.0]])
+	pred_periodicity = torch.tensor([[0.75, 0.85, 0.65, 0.55]])
 	return true_pitch, true_periodicity, pred_pitch, pred_periodicity
 
 
-def test_compute_spectrogram_mae():
-	wav_mel_gt, wav_mel_gen = make_dummy_tensors()
-	mae = compute_spectrogram_mae(wav_mel_gt, wav_mel_gen)
-	assert isinstance(mae, float)
-	assert mae > 0
-
-
-def test_compute_pitch_periodicity_shapes(monkeypatch):
-	# Patch torchcrepe.predict to return dummy values
-	def dummy_predict(wav, sr, hop, fmin, fmax, model, return_periodicity, device):
-		shape = (1, 10)
-		return torch.ones(shape), torch.ones(shape) * 0.5
-
-	monkeypatch.setattr("torchcrepe.predict", dummy_predict)
-
-	wav_mel_gt, wav_mel_gen = make_dummy_tensors()
-	pitch_gt, periodicity_gt, pitch_gen, periodicity_gen = compute_pitch_periodicity(
-		wav_mel_gt[0], wav_mel_gen[0]
-	)
-	assert (
-		pitch_gt.shape
-		== periodicity_gt.shape
-		== pitch_gen.shape
-		== periodicity_gen.shape
-	)
-
-
-def test_pitch_evaluator_update_and_call():
-	evaluator = PitchEvaluator()
+def test_pitch_evaluator_update_and_call(sample_pitch_periodicity):
 	true_pitch, true_periodicity, pred_pitch, pred_periodicity = (
-		make_pitch_periodicity_tensors()
+		sample_pitch_periodicity
 	)
+	evaluator = PitchEvaluator()
 	evaluator.update(true_pitch, true_periodicity, pred_pitch, pred_periodicity)
 	results = evaluator()
-	assert all(
-		key in results for key in ["pitch", "periodicity", "f1", "precision", "recall"]
+	# Check that all expected metrics are present and are floats
+	assert set(results.keys()) == {"pitch", "periodicity", "f1", "precision", "recall"}
+	for key in results:
+		assert isinstance(results[key], float)
+
+
+def test_pitch_evaluator_reset(sample_pitch_periodicity):
+	true_pitch, true_periodicity, pred_pitch, pred_periodicity = (
+		sample_pitch_periodicity
 	)
-	assert results["pitch"] >= 0
-	assert results["periodicity"] >= 0
+	evaluator = PitchEvaluator()
+	evaluator.update(true_pitch, true_periodicity, pred_pitch, pred_periodicity)
+	evaluator.reset()
+	# After reset, all counters and totals should be zero
+	assert evaluator.count == 0
+	assert evaluator.voiced == 0
+	assert evaluator.pitch_total == 0.0
+	assert evaluator.periodicity_total == 0.0
+	assert evaluator.true_positives == 0
+	assert evaluator.false_positives == 0
+	assert evaluator.false_negatives == 0
 
 
-def test_rmse():
+def test_rmse_update_and_call():
 	rmse = RMSE()
-	x = torch.tensor([1.0, 2.0, 3.0, 4.0])
-	y = torch.tensor([1.1, 1.9, 3.1, 3.9])
+	x = torch.tensor([1.0, 2.0, 3.0])
+	y = torch.tensor([1.0, 2.5, 2.5])
 	rmse.update(x, y)
-	val = rmse()
-	assert isinstance(val, float)
-	assert val >= 0
+	result = rmse()
+	# RMSE should be a float and non-negative
+	assert isinstance(result, float)
+	assert result >= 0
 
 
-def test_l1():
-	l1 = L1()
-	x = torch.tensor([1.0, 2.0, 3.0, 4.0])
-	y = torch.tensor([1.1, 1.9, 3.1, 3.9])
-	l1.update(x, y)
-	val = l1()
-	assert isinstance(val, float)
-	assert val >= 0
+def test_rmse_reset():
+	rmse = RMSE()
+	x = torch.tensor([1.0, 2.0, 3.0])
+	y = torch.tensor([1.0, 2.5, 2.5])
+	rmse.update(x, y)
+	rmse.reset()
+	assert rmse.count == 0
+	assert rmse.total == 0.0

@@ -11,6 +11,9 @@ import torchcrepe
 # Pitch metrics
 ###############################################################################
 
+# TODO: How to use PitchEvaluator in the evaluation pipeline? Find a way to integrate it with the evaluation loop. or not loop.
+# TODO: I don't know why this is in the loop.
+
 
 def compute_spectrogram_mae(
 	wav_mel_gt: torch.tensor = None, wav_mel_gen: torch.tensor = None
@@ -20,6 +23,7 @@ def compute_spectrogram_mae(
 	return mae
 
 
+# TODO: extract pitch and periodicity exist in cargan/preprocess.pitch, but it is not used in the evaluation pipeline.
 def compute_pitch_periodicity(
 	wav_mel_gt: torch.tensor = None,
 	wav_mel_gen: torch.tensor = None,
@@ -66,6 +70,7 @@ def compute_pitch_periodicity(
 	return (pitch_gt, periodicity_gt, pitch_gen, periodicity_gen)
 
 
+# This class can be used to evaluate pitch and periodicity metrics using gpu batch.
 class PitchEvaluator:
 	def __init__(self):
 		self.threshold = torchcrepe.threshold.Hysteresis()
@@ -119,11 +124,6 @@ class PitchEvaluator:
 		self.false_negatives += (true_voiced & ~pred_voiced).sum()
 
 
-###############################################################################
-# Waveform metrics
-###############################################################################
-
-
 class RMSE:
 	def __init__(self):
 		self.reset()
@@ -138,19 +138,3 @@ class RMSE:
 	def update(self, x, y):
 		self.count += x.numel()
 		self.total += ((x - y) ** 2).sum()
-
-
-class L1:
-	def __init__(self):
-		self.reset()
-
-	def __call__(self):
-		return (self.total / self.count).item()
-
-	def reset(self):
-		self.count = 0
-		self.total = 0.0
-
-	def update(self, x, y):
-		self.count += x.numel()
-		self.total += torch.abs(x - y).sum()
